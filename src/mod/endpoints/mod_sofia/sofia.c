@@ -4564,6 +4564,7 @@ switch_status_t config_sofia(sofia_config_t reload, char *profile_name)
 
 	if ((profiles = switch_xml_child(cfg, "profiles"))) {
 		for (xprofile = switch_xml_child(profiles, "profile"); xprofile; xprofile = xprofile->next) {
+			//遍历sip_profiles目录下的每个xml文件
 			char *xprofilename = (char *) switch_xml_attr_soft(xprofile, "name");
 			char *xprofiledomain = (char *) switch_xml_attr(xprofile, "domain");
 			if (!(settings = switch_xml_child(xprofile, "settings"))) {
@@ -4603,7 +4604,7 @@ switch_status_t config_sofia(sofia_config_t reload, char *profile_name)
 						sofia_profile_start_failure(NULL, xprofilename);
 						goto done;
 					}
-
+					//比如internal.xml就是一个profile
 					profile->tls_verify_policy = TPTLS_VERIFY_NONE;
 					sofia_set_pflag(profile, PFLAG_AUTO_INVITE_100);
 					/* lib default */
@@ -6347,7 +6348,7 @@ switch_status_t config_sofia(sofia_config_t reload, char *profile_name)
 					if (profile->sipip) {
 						switch_event_t *s_event;
 						if (!profile->extsipport) profile->extsipport = profile->sip_port;
-
+                        //每个profile，初始化一个sofia库事件处理线程
 						launch_sofia_profile_thread(profile);
 						if (profile->odbc_dsn) {
 							switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "Connecting ODBC Profile %s [%s]\n", profile->name, url);

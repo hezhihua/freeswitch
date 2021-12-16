@@ -375,13 +375,16 @@ typedef enum {
 
 struct mod_sofia_globals {
 	switch_memory_pool_t *pool;
+	//sip 的internal、internal-ipv6、external、external-ipv6配置文件内容
 	switch_hash_t *profile_hash;
+	//internal和external配置的网关列表
 	switch_hash_t *gateway_hash;
 	switch_mutex_t *hash_mutex;
 	uint32_t callid;
 	int32_t running;
 	int32_t threads;
 	int cpu_count;
+	//msg_queue队列数量的最大值
 	int max_msg_queues;
 	switch_mutex_t *mutex;
 	char guess_ip[80];
@@ -643,6 +646,7 @@ struct sofia_profile {
 	char *rtcp_video_interval_msec;
 
 	char *sdp_username;
+	//internal.xml或者/external.xml的sip-ip配置项，如果没有配置则用mod_sofia_globals.guess_ip
 	char *sipip;
 	char *extsipip;
 	char *url;

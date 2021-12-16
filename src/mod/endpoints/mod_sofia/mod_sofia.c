@@ -6556,6 +6556,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_sofia_load)
 	switch_core_hash_init(&mod_sofia_globals.gateway_hash);
 	switch_mutex_init(&mod_sofia_globals.hash_mutex, SWITCH_MUTEX_NESTED, mod_sofia_globals.pool);
 
+	//将多个 subclass 放入  static switch_hash_t *CUSTOM_HASH hash表，key为subclass name,data为switch_event_subclass_t
 	if (switch_event_reserve_subclass(MY_EVENT_NOTIFY_REFER) != SWITCH_STATUS_SUCCESS) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Couldn't register subclass %s!\n", MY_EVENT_NOTIFY_REFER);
 		switch_goto_status(SWITCH_STATUS_TERM, err);
@@ -6656,6 +6657,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_sofia_load)
 		switch_goto_status(SWITCH_STATUS_TERM, err);
 	}
 
+	//在vars.xml配置文件查找force_local_ip_v4选项,有则返回该配置值（默认没有）,否则通过getsockname获取本地地址
 	switch_find_local_ip(mod_sofia_globals.guess_ip, sizeof(mod_sofia_globals.guess_ip), &mod_sofia_globals.guess_mask, AF_INET);
 	in.s_addr = mod_sofia_globals.guess_mask;
 	switch_set_string(mod_sofia_globals.guess_mask_str, inet_ntoa(in));
@@ -6686,11 +6688,15 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_sofia_load)
 	/* start one message thread */
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Starting initial message thread.\n");
 
-
+	//调用sofia-sip库初始化
 	if (sofia_init() != SWITCH_STATUS_SUCCESS) {
 		switch_goto_status(SWITCH_STATUS_GENERR, err);
 		return SWITCH_STATUS_GENERR;
 	}
+	//获取autoload_configs/sofia.conf.xml配置值（包括X-PRE-PROCESS的xml），初始化mod_sofia_globals部分成员
+	//读取配置文件进行设置，这里关键是对每个profile初始化监听线程，调用的是launch_sofia_profile_thread()，
+	//每个profile，初始化一个sofia库事件处理线程，一个FS应用层消息队列处理线程。
+	//在launch_sofia_profile_thread（）中，初始化协议栈事件线程，线程入口函数sofia_profile_thread_run()，在这个线程里，调用nua_create接口实例化NUA对象，同时绑定事件回调函数sofia_event_callback()；调用switch_queue_create初始化应用层的消息队列，然后调用launch_sofia_worker_thread（）派生出应用层消息队列处理线程
 
 	if (config_sofia(SOFIA_CONFIG_LOAD, NULL) != SWITCH_STATUS_SUCCESS) {
 		mod_sofia_globals.running = 0;
