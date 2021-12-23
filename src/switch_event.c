@@ -84,6 +84,7 @@ static unsigned int MAX_DISPATCH = MAX_DISPATCH_VAL;
 static unsigned int SOFT_MAX_DISPATCH = 0;
 static char guess_ip_v4[80] = "";
 static char guess_ip_v6[80] = "";
+//事件队列数组，每一种事件一个队列
 static switch_event_node_t *EVENT_NODES[SWITCH_EVENT_ALL + 1] = { NULL };
 static switch_thread_rwlock_t *RWLOCK = NULL;
 static switch_mutex_t *BLOCK = NULL;
@@ -302,7 +303,7 @@ static void *SWITCH_THREAD_FUNC switch_event_dispatch_thread(switch_thread_t *th
 	int my_id = 0;
 
 	switch_mutex_lock(EVENT_QUEUE_MUTEX);
-	THREAD_COUNT++;
+	THREAD_COUNT++;//全局变量，线程数量
 	DISPATCH_THREAD_COUNT++;
 
 	for (my_id = 0; my_id < MAX_DISPATCH_VAL; my_id++) {
@@ -312,10 +313,12 @@ static void *SWITCH_THREAD_FUNC switch_event_dispatch_thread(switch_thread_t *th
 	}
 
 	if ( my_id >= MAX_DISPATCH_VAL ) {
+		//找到该线程id
 		switch_mutex_unlock(EVENT_QUEUE_MUTEX);
 		return NULL;
 	}
 
+	//标志该线程正在运行
 	EVENT_DISPATCH_QUEUE_RUNNING[my_id] = 1;
 	switch_mutex_unlock(EVENT_QUEUE_MUTEX);
 
@@ -327,7 +330,7 @@ static void *SWITCH_THREAD_FUNC switch_event_dispatch_thread(switch_thread_t *th
 		if (!SYSTEM_RUNNING) {
 			break;
 		}
-
+        //消费队列里面的event
 		if (switch_queue_pop(queue, &pop) != SWITCH_STATUS_SUCCESS) {
 			continue;
 		}
@@ -337,12 +340,15 @@ static void *SWITCH_THREAD_FUNC switch_event_dispatch_thread(switch_thread_t *th
 		}
 
 		event = (switch_event_t *) pop;
+		//执行事件回调函数
 		switch_event_deliver(&event);
+		//出让cpu
 		switch_os_yield();
 	}
 
 
 	switch_mutex_lock(EVENT_QUEUE_MUTEX);
+	//线程结束
 	EVENT_DISPATCH_QUEUE_RUNNING[my_id] = 0;
 	THREAD_COUNT--;
 	DISPATCH_THREAD_COUNT--;
@@ -408,6 +414,7 @@ SWITCH_DECLARE(void) switch_event_deliver(switch_event_t **event)
 			for (node = EVENT_NODES[e]; node; node = node->next) {
 				if (switch_events_match(*event, node)) {
 					(*event)->bind_user_data = node->user_data;
+					//这里的callback 为switch_event_bind注册的函数
 					node->callback(*event);
 				}
 			}
@@ -633,9 +640,9 @@ static void check_dispatch(void)
 	if (!EVENT_DISPATCH_QUEUE) {
 		switch_mutex_lock(BLOCK);
 
-		if (!EVENT_DISPATCH_QUEUE) {
+		if (!EVENT_DISPATCH_QUEUE) {//双重检查是否已经创建EVENT_DISPATCH_QUEUE队列
 			switch_queue_create(&EVENT_DISPATCH_QUEUE, DISPATCH_QUEUE_LEN * MAX_DISPATCH, THRUNTIME_POOL);
-			switch_event_launch_dispatch_threads(1);
+			switch_event_launch_dispatch_threads(1);//只创建一个线程去消费事件
 
 			while (!THREAD_COUNT) {
 				switch_cond_next();
@@ -668,14 +675,16 @@ SWITCH_DECLARE(void) switch_event_launch_dispatch_threads(uint32_t max)
 
 	for (index = SOFT_MAX_DISPATCH; index < max && index < MAX_DISPATCH; index++) {
 		if (EVENT_DISPATCH_QUEUE_THREADS[index]) {
+			//线程已经创建
 			continue;
 		}
 
 		switch_threadattr_create(&thd_attr, pool);
 		switch_threadattr_stacksize_set(thd_attr, SWITCH_THREAD_STACKSIZE);
 		switch_threadattr_priority_set(thd_attr, SWITCH_PRI_REALTIME);
+		//创建线程
 		switch_thread_create(&EVENT_DISPATCH_QUEUE_THREADS[index], thd_attr, switch_event_dispatch_thread, EVENT_DISPATCH_QUEUE, pool);
-		while(--sanity && !EVENT_DISPATCH_QUEUE_RUNNING[index]) switch_yield(10000);
+		while(--sanity && !EVENT_DISPATCH_QUEUE_RUNNING[index]) switch_yield(10000);//创建的线程正在执行则睡一会10毫秒
 
 		if (index == 1) {
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Create event dispatch thread %d\n", index);
@@ -2032,6 +2041,7 @@ SWITCH_DECLARE(switch_status_t) switch_event_fire_detailed(const char *file, con
 
 
 	if (runtime.events_use_dispatch) {
+		//xml的events-use-dispatch配置,fs没有配置这个变量,程序里runtime.events_use_dispatch 默认为1
 		check_dispatch();
 
 		if (switch_event_queue_dispatch_event(event) != SWITCH_STATUS_SUCCESS) {

@@ -1418,12 +1418,14 @@ static void notify_watched_header(switch_core_session_t *session, const char *ms
 {
 	switch_event_t *event = NULL;
 	switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "Found known watched header in message '%s', %s: %s\n", msgline, hdrname, hdrval);
+	//创建一个 SWITCH_EVENT_CUSTOM 事件
 	if (switch_event_create_subclass(&event, SWITCH_EVENT_CUSTOM, MY_EVENT_NOTIFY_WATCHED_HEADER) == SWITCH_STATUS_SUCCESS) {
 		switch_channel_t *channel = switch_core_session_get_channel(session);
 		switch_event_add_header_string(event, SWITCH_STACK_BOTTOM, "SIP-Message", msgline);
 		switch_event_add_header_string(event, SWITCH_STACK_BOTTOM, "Header-Name", hdrname);
 		switch_event_add_header_string(event, SWITCH_STACK_BOTTOM, "Header-Value", hdrval);
 		switch_channel_event_set_data(channel, event);
+		//创建线程消费该事件
 		switch_event_fire(&event);
 	} else {
 		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_CRIT, "Failed creating event of type %s!\n", MY_EVENT_NOTIFY_WATCHED_HEADER);
