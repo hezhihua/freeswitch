@@ -3291,11 +3291,12 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 
 	if (auth_acl) {
 		if (!switch_check_network_list_ip(ip, auth_acl)) {
-			//ip不在auth_acl里面，拒绝它
+			//ip不在auth_acl里面
 			int network_ip_is_proxy = 0;
 			uint32_t x = 0;
 			char *last_acl = NULL;
 			if (profile->proxy_acl_count == 0) {
+				//该ip不是代理，拒绝它
 				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "IP %s Rejected by user acl [%s] and no proxy acl present\n", ip, auth_acl);
 				ret = AUTH_FORBIDDEN;
 				goto end;
@@ -3310,7 +3311,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "checking %s against acl %s\n", ip, last_acl);
 				if (switch_check_network_list_ip(ip, last_acl)) {
 					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "%s is a proxy according to the %s acl\n", ip, last_acl);
-					network_ip_is_proxy = 1;
+					network_ip_is_proxy = 1;//该ip是代理
 					break;
 				}
 			}
