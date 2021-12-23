@@ -3023,6 +3023,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 
 	username = realm = nonce = uri = qop = cnonce = nc = response = algorithm = NULL;
 
+	//authorization->au_params里面解释出各个参数
 	if (authorization->au_params) {
 		for (indexnum = 0; (cur = authorization->au_params[indexnum]); indexnum++) {
 			char *var, *val, *p, *work;
@@ -3121,7 +3122,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 		cb.nplen = nplen;
 
 		switch_assert(sql != NULL);
-
+		//执行完sql，执行sofia_reg_nonce_callback函数将查询结果放入cb里面的nonce和last_nc
 		sofia_glue_execute_sql_callback(profile, profile->dbh_mutex, sql, sofia_reg_nonce_callback, &cb);
 		free(sql);
 
@@ -3138,6 +3139,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 		}
 	}
 
+	//创建SWITCH_EVENT_REQUEST_PARAMS事件
 	switch_event_create(&params, SWITCH_EVENT_REQUEST_PARAMS);
 	switch_assert(params);
 	switch_event_add_header_string(params, SWITCH_STACK_BOTTOM, "action", "sip_auth");
@@ -3223,6 +3225,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 		domain_name = realm;
 	}
 
+	//在缓存或者xml中找该用户
 	if (switch_xml_locate_user_merged("id", zstr(username) ? "nobody" : username, domain_name, ip, &user, params) != SWITCH_STATUS_SUCCESS) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Can't find user [%s@%s] from %s\n"
 						  "You must define a domain called '%s' in your directory and add a user with the id=\"%s\" attribute\n"
@@ -3234,6 +3237,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 	} else {
 		const char *type = switch_xml_attr(user, "type");
 		if (type && !strcasecmp(type, "pointer")) {
+			//注册类型为pointer则返回错误
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Can't register a pointer.\n");
 			ret = AUTH_FORBIDDEN;
 			goto end;
@@ -3245,6 +3249,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 	}
 
 	if (!(uparams = switch_xml_child(user, "params"))) {
+		//没设置params参数，不校验
 		ret = AUTH_OK;
 		goto skip_auth;
 	} else {
@@ -3253,6 +3258,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 			const char *val = switch_xml_attr_soft(param, "value");
 
 			if (!strcasecmp(var, "sip-forbid-register") && switch_true(val)) {
+				//sip-forbid-register 设置为true
 				ret = AUTH_FORBIDDEN;
 				goto end;
 			}

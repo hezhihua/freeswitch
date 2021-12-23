@@ -2134,9 +2134,11 @@ SWITCH_DECLARE(switch_status_t) switch_xml_locate_user_merged(const char *key, c
 
 	for(i = 0; i < nkeys; i++) {
 		if ((status = switch_xml_locate_user_cache(keys[i], user_name, domain_name, &x_user)) == SWITCH_STATUS_SUCCESS) {
+			//根据keys[i], user_name, domain_name找到user
 			*user = x_user;
 			break;
 		} else if ((status = switch_xml_locate_user(keys[i], user_name, domain_name, ip, &xml, &domain, &x_user, &group, params)) == SWITCH_STATUS_SUCCESS) {
+			//在xml文件中找到?
 			const char *cacheable = NULL;
 
 			x_user_dup = switch_xml_dup(x_user);
@@ -2156,6 +2158,7 @@ SWITCH_DECLARE(switch_status_t) switch_xml_locate_user_merged(const char *key, c
 				} else {
 					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "caching lookup for user %s@%s indefinitely\n", user_name, domain_name);
 				}
+				//插入cache里面
 				switch_xml_user_cache(keys[i], user_name, domain_name, x_user_dup, expires);
 			}
 			*user = x_user_dup;

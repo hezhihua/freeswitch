@@ -1614,6 +1614,7 @@ static void our_sofia_event_callback(nua_event_t event,
 		if (authorization && sip->sip_request) {
 			char network_ip[80] = "";
 			int network_port;
+			//从de->data->e_msg里面解释出ip和port
 			sofia_glue_get_addr(de->data->e_msg, network_ip, sizeof(network_ip), &network_port);
 			auth_res = sofia_reg_parse_auth(profile, authorization, sip, de,
 											(char *) sip->sip_request->rq_method_name, tech_pvt->key, strlen(tech_pvt->key), network_ip, network_port, NULL, 0,
