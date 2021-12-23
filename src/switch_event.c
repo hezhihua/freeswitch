@@ -1132,7 +1132,7 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 			m = NULL;
 		}
 
-	    //增大数组
+	    //增大数组header->array
 		i = header->idx + 1;
 		m = realloc(header->array, sizeof(char *) * i);
 		switch_assert(m);
@@ -1163,6 +1163,7 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 		}
 
 		if (len) {
+			//将数组的内容拼接到header->value
 			len += 8;
 			hv = realloc(header->value, len);
 			switch_assert(hv);
@@ -1195,15 +1196,18 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 	}
 
 	if (!exists) {
+		//header->name的哈希值
 		header->hash = switch_ci_hashfunc_default(header->name, &hlen);
 
 		if ((stack & SWITCH_STACK_TOP)) {
+			//新的header放在队列头
 			header->next = event->headers;
 			event->headers = header;
 			if (!event->last_header) {
 				event->last_header = header;
 			}
 		} else {
+			//新的header放在队列尾巴
 			if (event->last_header) {
 				event->last_header->next = header;
 			} else {
