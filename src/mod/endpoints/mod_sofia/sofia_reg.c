@@ -3291,6 +3291,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 
 	if (auth_acl) {
 		if (!switch_check_network_list_ip(ip, auth_acl)) {
+			//ip不在auth_acl里面，拒绝它
 			int network_ip_is_proxy = 0;
 			uint32_t x = 0;
 			char *last_acl = NULL;
