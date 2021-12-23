@@ -1029,6 +1029,7 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 		switch_event_header_t *tmp_header = NULL;
 
 		if (!(header = switch_event_get_header_ptr(event, header_name)) && index_ptr) {
+			//在event->headers没有则新建
 
 			tmp_header = header = new_header(header_name);
 
@@ -1040,13 +1041,17 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 		}
 
 		if (header || (header = switch_event_get_header_ptr(event, header_name))) {
+			//新的header或者在event->headers找到的
 
 			if (index_ptr) {
 				if (index > -1 && index <= 4000) {
+					//index 在[0,4000]
 					if (index < header->idx) {
+						//header->idx为数组最大index，小于则赋值
 						FREE(header->array[index]);
 						header->array[index] = DUP(data);
 					} else {
+						//大于则申请欠缺的内存来保存数据
 						int i;
 						char **m;
 
@@ -1066,6 +1071,7 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 						goto redraw;
 					}
 				} else if (tmp_header) {
+					//index过大了
 					free_header(&tmp_header);
 				}
 
@@ -1086,18 +1092,22 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 	if (!header) {
 
 		if (zstr(data)) {
+			//内容为空则删除并返回
 			switch_event_del_header(event, header_name);
 			FREE(data);
 			goto end;
 		}
 
 		if (switch_test_flag(event, EF_UNIQ_HEADERS)) {
+			//有唯一标志先删除
 			switch_event_del_header(event, header_name);
 		}
 
 		if (!strncmp(data, "ARRAY::", 7)) {
+			//这个header_name对应的值是一个数组，需要解释data拿一个一个值出来设置进去，
 			switch_event_add_array(event, header_name, data);
 			FREE(data);
+			//直接返回
 			goto end;
 		}
 
@@ -1112,6 +1122,7 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 		int i = 0, j = 0;
 
 		if (header->value && !header->idx) {
+			//没有创建数组则先创建数组
 			m = malloc(sizeof(char *));
 			switch_assert(m);
 			m[0] = header->value;
@@ -1121,13 +1132,16 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 			m = NULL;
 		}
 
+	    //增大数组
 		i = header->idx + 1;
 		m = realloc(header->array, sizeof(char *) * i);
 		switch_assert(m);
 
 		if ((stack & SWITCH_STACK_PUSH)) {
+			//放在数组最后
 			m[header->idx] = data;
 		} else if ((stack & SWITCH_STACK_UNSHIFT)) {
+			//放在数组开头
 			for (j = header->idx; j > 0; j--) {
 				m[j] = m[j-1];
 			}
@@ -1144,6 +1158,7 @@ static switch_status_t switch_event_base_add_header(switch_event_t *event, switc
 			if (!header->array[j]) { 
 				continue;
 			}
+			//数组字符串的总长度
 			len += strlen(header->array[j]);
 		}
 

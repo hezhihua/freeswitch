@@ -1491,30 +1491,38 @@ static void our_sofia_event_callback(nua_event_t event,
 
 	if (sofia_private && sofia_private != &mod_sofia_globals.destroy_private && sofia_private != &mod_sofia_globals.keep_private) {
 		if (!zstr(sofia_private->gateway_name)) {
+			//gateway_name非空，看是否存在
 			if (!(gateway = sofia_reg_find_gateway(sofia_private->gateway_name))) {
 				return;
 			}
 		} else if (!zstr(sofia_private->uuid)) {
+			//uuid非空
 			if ((session = de->init_session)) {
 				de->init_session = NULL;
 			} else if ((session = de->session) || (session = switch_core_session_locate(sofia_private->uuid))) {
+				//根据uuid找到了session
+				//返回session->private_info[SWITCH_PVT_PRIMARY]
 				tech_pvt = switch_core_session_get_private(session);
+				//return session->channel
 				channel = switch_core_session_get_channel(session);
 				if (tech_pvt) {
 					switch_mutex_lock(tech_pvt->sofia_mutex);
 					locked = 1;
 				} else {
+					//不为同一个session则解锁返回
 					if (session != de->session) switch_core_session_rwunlock(session);
 					return;
 				}
 
 				if (status >= 180 && !*sofia_private->auth_gateway_name) {
+					//比如183或者200，auth_gateway_name为空则填值为变量名sip_use_gateway的值
 					const char *gwname = switch_channel_get_variable(channel, "sip_use_gateway");
 					if (!zstr(gwname)) {
 						switch_set_string(sofia_private->auth_gateway_name, gwname);
 					}
 				}
 				if (!tech_pvt->call_id && sip && sip->sip_call_id && sip->sip_call_id->i_id) {
+					//tech_pvt->call_id 为空，则给其赋值
 					tech_pvt->call_id = switch_core_session_strdup(session, sip->sip_call_id->i_id);
 					switch_channel_set_variable(channel, "sip_call_id", tech_pvt->call_id);
 				}
@@ -1524,10 +1532,12 @@ static void our_sofia_event_callback(nua_event_t event,
 				}
 
 				if (channel && switch_channel_down(channel)) {
+					//已经挂断
 					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "Channel is already hungup.\n");
 					goto done;
 				}
 			} else {
+				//根据uuid找不到了session，可能已经挂 断或者其它，直接返回
 				/* we can't find the session it must be hanging up or something else, its too late to do anything with it. */
 				return;
 			}
@@ -1539,9 +1549,11 @@ static void our_sofia_event_callback(nua_event_t event,
 		int hi;
 		msg_header_t *h = NULL;
 		if (sip->sip_request) {
+			//Request-Line 的内容放到msgline 看抓包
 			h = (msg_header_t *)sip->sip_request;
 			msg_header_field_e(msgline, sizeof(msgline), h, 0);
 		} else if (sip->sip_status) {
+			//Status-Line 的内容放到msgline  看抓包
 			h = (msg_header_t *)sip->sip_status;
 			msg_header_field_e(msgline, sizeof(msgline), h, 0);
 		}
@@ -1559,6 +1571,7 @@ static void our_sofia_event_callback(nua_event_t event,
 			/* Faster (ie hash-based) search here would be nice? ie, make watch_headers a hash? */
 
 			/* Search first in the valid headers */
+			//看h->sh_succ是否是tech_pvt->watch_headers里面关注的头内容
 			for (h = h->sh_succ; h; h = h->sh_succ) {
 				sip_header_t *sh = (sip_header_t *)h;
 				if (!sh->sh_class->hc_name) {
@@ -1568,12 +1581,15 @@ static void our_sofia_event_callback(nua_event_t event,
 					if (!strcasecmp(tech_pvt->watch_headers[hi], sh->sh_class->hc_name)) {
 						msg_header_field_e(buf, sizeof(buf), h, 0);
 						buf[sizeof(buf)-1] = '\0';
+						//sh->sh_class->hc_name 为Header-Name,
+						//buf 为Header-Value
 						notify_watched_header(session, msgline, sh->sh_class->hc_name, buf);
 					}
 				}
 			}
 
 			/* Search now in the unknown headers */
+			//看sip->sip_unknown是否是tech_pvt->watch_headers里面关注的头内容
 			for (un = sip->sip_unknown; un; un = un->un_next) {
 				for (hi = 0; tech_pvt->watch_headers[hi]; hi++) {
 					if (!strcasecmp(tech_pvt->watch_headers[hi], un->un_name)) {
