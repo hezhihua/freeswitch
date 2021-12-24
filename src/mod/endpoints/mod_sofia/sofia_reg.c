@@ -3327,6 +3327,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 						switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "found auth ip [%s] header of [%s]\n", un->un_name, un->un_value);
 						if (!zstr(un->un_value)) {
 							if (!switch_check_network_list_ip(un->un_value, auth_acl)) {
+								//X-AUTH-IP 不在auth_acl里面，拒绝
 								switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "IP %s Rejected by user acl %s\n", un->un_value, auth_acl);
 								ret = AUTH_FORBIDDEN;
 								goto end;

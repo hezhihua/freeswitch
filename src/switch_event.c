@@ -299,12 +299,13 @@ static void switch_event_deliver_thread_pool(switch_event_t **event)
 
 static void *SWITCH_THREAD_FUNC switch_event_dispatch_thread(switch_thread_t *thread, void *obj)
 {
+	//消费EVENT_DISPATCH_QUEUE队列里面的事件
 	switch_queue_t *queue = (switch_queue_t *) obj;
 	int my_id = 0;
 
 	switch_mutex_lock(EVENT_QUEUE_MUTEX);
 	THREAD_COUNT++;//全局变量，线程数量
-	DISPATCH_THREAD_COUNT++;
+	DISPATCH_THREAD_COUNT++;//全局变量，dispatch线程数量
 
 	for (my_id = 0; my_id < MAX_DISPATCH_VAL; my_id++) {
 		if (EVENT_DISPATCH_QUEUE_THREADS[my_id] == thread) {
@@ -330,7 +331,7 @@ static void *SWITCH_THREAD_FUNC switch_event_dispatch_thread(switch_thread_t *th
 		if (!SYSTEM_RUNNING) {
 			break;
 		}
-        //消费队列里面的event
+        //消费队列里面的event，多线程消费不用加锁？
 		if (switch_queue_pop(queue, &pop) != SWITCH_STATUS_SUCCESS) {
 			continue;
 		}
@@ -361,6 +362,7 @@ static void *SWITCH_THREAD_FUNC switch_event_dispatch_thread(switch_thread_t *th
 
 static int PENDING = 0;
 
+//分发EVENT_DISPATCH_QUEUE队列里面的事件给各个线程消费
 static switch_status_t switch_event_queue_dispatch_event(switch_event_t **eventp)
 {
 
@@ -377,6 +379,7 @@ static switch_status_t switch_event_queue_dispatch_event(switch_event_t **eventp
 
 		if (!PENDING && switch_queue_size(EVENT_DISPATCH_QUEUE) > (unsigned int)(DISPATCH_QUEUE_LEN * DISPATCH_THREAD_COUNT)) {
 			if (SOFT_MAX_DISPATCH + 1 < MAX_DISPATCH) {
+				//一个线程处理DISPATCH_QUEUE_LEN数量，目前队列事件数量已经超出线程处理的能力，需要增加线程处理
 				launch++;
 				PENDING++;
 			}
@@ -386,6 +389,7 @@ static switch_status_t switch_event_queue_dispatch_event(switch_event_t **eventp
 
 		if (launch) {
 			if (SOFT_MAX_DISPATCH + 1 < MAX_DISPATCH) {
+				//SOFT_MAX_DISPATCH + 1 表示创建多一个线程
 				switch_event_launch_dispatch_threads(SOFT_MAX_DISPATCH + 1);
 			}
 
@@ -395,6 +399,7 @@ static switch_status_t switch_event_queue_dispatch_event(switch_event_t **eventp
 		}
 
 		*eventp = NULL;
+		//先消费队列旧的事件再把新来的事件放进队列
 		switch_queue_push(EVENT_DISPATCH_QUEUE, event);
 		event = NULL;
 
@@ -640,7 +645,7 @@ static void check_dispatch(void)
 	if (!EVENT_DISPATCH_QUEUE) {
 		switch_mutex_lock(BLOCK);
 
-		if (!EVENT_DISPATCH_QUEUE) {//双重检查是否已经创建EVENT_DISPATCH_QUEUE队列
+		if (!EVENT_DISPATCH_QUEUE) {//双重检查是否已经创建EVENT_DISPATCH_QUEUE队列，队列能装载的大小为DISPATCH_QUEUE_LEN * MAX_DISPATCH
 			switch_queue_create(&EVENT_DISPATCH_QUEUE, DISPATCH_QUEUE_LEN * MAX_DISPATCH, THRUNTIME_POOL);
 			switch_event_launch_dispatch_threads(1);//只创建一个线程去消费事件
 
@@ -684,7 +689,7 @@ SWITCH_DECLARE(void) switch_event_launch_dispatch_threads(uint32_t max)
 		switch_threadattr_priority_set(thd_attr, SWITCH_PRI_REALTIME);
 		//创建线程
 		switch_thread_create(&EVENT_DISPATCH_QUEUE_THREADS[index], thd_attr, switch_event_dispatch_thread, EVENT_DISPATCH_QUEUE, pool);
-		while(--sanity && !EVENT_DISPATCH_QUEUE_RUNNING[index]) switch_yield(10000);//创建的线程正在执行则睡一会10毫秒
+		while(--sanity && !EVENT_DISPATCH_QUEUE_RUNNING[index]) switch_yield(10000);//创建的线程不在执行则睡一会10毫秒，出让cpu，直到创建的线程在执行，则继续往下执行
 
 		if (index == 1) {
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Create event dispatch thread %d\n", index);
@@ -694,6 +699,7 @@ SWITCH_DECLARE(void) switch_event_launch_dispatch_threads(uint32_t max)
 		launched++;
 	}
 
+	//创建 的最后一个线程的index
 	SOFT_MAX_DISPATCH = index;
 }
 
@@ -2041,7 +2047,8 @@ SWITCH_DECLARE(switch_status_t) switch_event_fire_detailed(const char *file, con
 
 
 	if (runtime.events_use_dispatch) {
-		//xml的events-use-dispatch配置,fs没有配置这个变量,程序里runtime.events_use_dispatch 默认为1
+		//是否分发事件给不同的线程处理，xml的events-use-dispatch配置,fs没有配置这个变量,程序里runtime.events_use_dispatch 默认为1
+		//创建线程去消费事件
 		check_dispatch();
 
 		if (switch_event_queue_dispatch_event(event) != SWITCH_STATUS_SUCCESS) {
@@ -2049,6 +2056,7 @@ SWITCH_DECLARE(switch_status_t) switch_event_fire_detailed(const char *file, con
 			return SWITCH_STATUS_FALSE;
 		}
 	} else {
+		//单线程去处理这个事件
 		switch_event_deliver_thread_pool(event);
 	}
 
