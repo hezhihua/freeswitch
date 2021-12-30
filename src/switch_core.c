@@ -1460,6 +1460,7 @@ SWITCH_DECLARE(void) switch_load_network_lists(switch_bool_t reload)
 
 	switch_find_local_ip(guess_ip, sizeof(guess_ip), &mask, AF_INET);
 	in.s_addr = mask;
+	//子网掩码,如ifconfig命令输出的 netmask 255.255.255.0
 	switch_set_string(guess_mask, inet_ntoa(in));
 
 	switch_mutex_lock(runtime.global_mutex);
@@ -1486,6 +1487,7 @@ SWITCH_DECLARE(void) switch_load_network_lists(switch_bool_t reload)
 	tmp_name = "rfc1918.auto";
 	switch_network_list_create(&rfc_list, tmp_name, SWITCH_FALSE, IP_LIST.pool);
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_NOTICE, "Created ip list %s default (deny)\n", tmp_name);
+	//解释10.0.0.0/8，放入rfc_list队列头部
 	switch_network_list_add_cidr(rfc_list, "10.0.0.0/8", SWITCH_TRUE);
 	switch_network_list_add_cidr(rfc_list, "172.16.0.0/12", SWITCH_TRUE);
 	switch_network_list_add_cidr(rfc_list, "192.168.0.0/16", SWITCH_TRUE);

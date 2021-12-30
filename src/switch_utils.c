@@ -632,6 +632,7 @@ SWITCH_DECLARE(switch_status_t) switch_network_list_perform_add_cidr_token(switc
 
 	ports = switch_network_port_range_to_string(port);
 
+	//比如10.0.0.0/8,解释出ip为10.0.0.0，mask为255.0.0.0，bits为8，
 	if (switch_parse_cidr(cidr_str, &ip, &mask, &bits)) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Error Adding %s %s(%s) [%s] to list %s\n",
 						  cidr_str, ports ? ports : "", ok ? "allow" : "deny", switch_str_nil(token), list->name);
@@ -662,6 +663,7 @@ SWITCH_DECLARE(switch_status_t) switch_network_list_perform_add_cidr_token(switc
 		node->token = switch_core_strdup(list->pool, token);
 	}
 
+	//放到队列头部
 	node->next = list->node_head;
 	list->node_head = node;
 
@@ -710,6 +712,7 @@ SWITCH_DECLARE(switch_status_t) switch_network_list_add_host_port_mask(switch_ne
 	ip_t ip, mask;
 	switch_network_node_t *node;
 
+	//ip地址转换为二进制
 	switch_inet_pton(AF_INET, host, &ip);
 	switch_inet_pton(AF_INET, mask_str, &mask);
 
@@ -728,7 +731,7 @@ SWITCH_DECLARE(switch_status_t) switch_network_list_add_host_port_mask(switch_ne
 	node->bits = (((mask.v4 + (mask.v4 >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24;
 
 	node->str = switch_core_sprintf(list->pool, "%s:%s", host, mask_str);
-
+	//放到队列头部
 	node->next = list->node_head;
 	list->node_head = node;
 
@@ -757,7 +760,8 @@ SWITCH_DECLARE(int) switch_parse_cidr(const char *string, ip_t *ip, ip_t *mask, 
 		return -1;
 	}
 
-	*bit_str++ = '\0';
+	*bit_str++ = '\0';// 即host/bits
+	//比如10.0.0.0/8,bits为8
 	bits = atoi(bit_str);
 	ipv6 = strchr(string, ':');
 	if (ipv6) {
@@ -784,9 +788,11 @@ SWITCH_DECLARE(int) switch_parse_cidr(const char *string, ip_t *ip, ip_t *mask, 
 		}
 
 		bits = atoi(bit_str);
-		switch_inet_pton(AF_INET, host, (unsigned char *)ip);
+		switch_inet_pton(AF_INET, host, (unsigned char *)ip);//host ip地址转换为二进制存到ip
 		ipv->v4 = htonl(ipv->v4);
 
+		//0xFFFFFFFF 右移8位等于0x00FFFFFF，再取反等于0xFF000000，再和0xFFFFFFFF与操作等于0xFF000000
+		//即255.0.0.0
 		maskv->v4 = 0xFFFFFFFF & ~(0xFFFFFFFF >> bits);
 	}
 	*bitp = bits;
@@ -1949,6 +1955,7 @@ SWITCH_DECLARE(switch_status_t) switch_find_local_ip(char *buf, int len, int *ma
 			}
 
 			ilen = sizeof(iface_out);
+			//iface_out为取到的本地地址
 			if (getsockname(tmp_socket, (struct sockaddr *) &iface_out, &ilen) == -1) {
 				goto doh;
 			}
@@ -1959,6 +1966,7 @@ SWITCH_DECLARE(switch_status_t) switch_find_local_ip(char *buf, int len, int *ma
 
 			switch_copy_string(buf, get_addr(abuf, sizeof(abuf), (struct sockaddr *) &iface_out, sizeof(struct sockaddr_storage)), len);
 			if (mask) {
+				//获取子网掩码
 				get_netmask((struct sockaddr_in *) &iface_out, mask);
 			}
 
