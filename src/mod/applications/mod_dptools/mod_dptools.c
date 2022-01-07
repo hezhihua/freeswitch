@@ -3438,6 +3438,7 @@ struct camping_stake {
 	const char *moh;
 };
 
+//给 aleg 放音乐
 static void *SWITCH_THREAD_FUNC camp_music_thread(switch_thread_t *thread, void *obj)
 {
 	struct camping_stake *stake = (struct camping_stake *) obj;
@@ -3457,6 +3458,8 @@ static void *SWITCH_THREAD_FUNC camp_music_thread(switch_thread_t *thread, void 
 
 	channel = switch_core_session_get_channel(stake->session);
 
+	//DTMF digit that breaks the campon loop and skips directly to fallback extension
+	//<action application="set" data="campon_stop_key=1"/> 按1挂断？
 	if ((stop = switch_channel_get_variable(channel, "campon_stop_key"))) {
 		*dbuf = *stop;
 	}
@@ -3466,6 +3469,7 @@ static void *SWITCH_THREAD_FUNC camp_music_thread(switch_thread_t *thread, void 
 	args.buflen = sizeof(dbuf);
 
 	/* don't set this to a local_stream:// or you will not be happy */
+	//<action application="set" data="campon_announce_sound=press_one_to_stop.wav"/>
 	if ((greet = switch_channel_get_variable(channel, "campon_announce_sound"))) {
 		status = switch_ivr_play_file(session, NULL, greet, &args);
 	}
@@ -3513,6 +3517,7 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 	}
 
 	if ((v_campon = switch_channel_get_variable(caller_channel, "campon")) && switch_true(v_campon)) {
+		//<action application="set" data="campon=true"/> 被叫用户忙时允许呼叫等待
 		const char *cid_name = NULL;
 		const char *cid_number = NULL;
 
@@ -3531,10 +3536,14 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 		if (cid_number && !cid_name) {
 			cid_name = cid_number;
 		}
-
+		//以下变量为英文的解释
+		// Controls how many times the bridge will be retried before falling back. 
 		v_campon_retries = switch_channel_get_variable(caller_channel, "campon_retries");
+		//This variable controls how long to attempt each bridge before timing out. It works exactly like call_timeout but only applies to camping.
 		v_campon_timeout = switch_channel_get_variable(caller_channel, "campon_timeout");
+		//Controls how long to wait before starting a retry. 重试之前要sleep的时间
 		v_campon_sleep = switch_channel_get_variable(caller_channel, "campon_sleep");
+		//Extention number where the call is transferred for fallback
 		v_campon_fallback_exten = switch_channel_get_variable(caller_channel, "campon_fallback_exten");
 
 		if (v_campon_retries) {
@@ -3565,6 +3574,10 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 			camp_data = (char *) data;
 		}
 
+		//呼叫等待时放音乐
+		//Optional hold music to play while camping instead of default hold_music.
+		//<action application="set" data="campon_hold_music=/data/campmusic/RelaxingCampSounds.wav"/>
+		//<action application="set" data="silence"/>
 		if (!(moh = switch_channel_get_variable(caller_channel, "campon_hold_music"))) {
 			moh = switch_channel_get_hold_music(caller_channel);
 		}
@@ -3582,10 +3595,14 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 			}
 
 			if (status == SWITCH_STATUS_SUCCESS) {
+				//bleg已经有应答返回
 				break;
 			} else {
 				fail = 1;
 			}
+			//bypass_media  ，Bypass Media 模式:信令代理,媒体不经过
+			//CF_PROXY_MEDIA ，Proxy Media 模式:仅转发媒体，但不处理媒体如编解码等 
+			//CF_PROXY_MODE，信令代理？
 
 			if (!thread_started && fail && moh && !switch_channel_test_flag(caller_channel, CF_PROXY_MODE) &&
 				!switch_channel_test_flag(caller_channel, CF_PROXY_MEDIA) &&
@@ -3594,7 +3611,8 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 				switch_threadattr_stacksize_set(thd_attr, SWITCH_THREAD_STACKSIZE);
 				stake.running = 1;
 				stake.moh = moh;
-				stake.session = session;
+				stake.session = session;//aleg
+				//camp_music_thread 给 aleg 放音乐
 				switch_thread_create(&thread, thd_attr, camp_music_thread, &stake, switch_core_session_get_pool(session));
 				thread_started = 1;
 			}
@@ -3623,6 +3641,7 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 		if (thread) {
 			stake.running = 0;
 			switch_channel_set_flag(caller_channel, CF_NOT_READY);
+			//等待camp_music_thread线程返回
 			switch_thread_join(&status, thread);
 		}
 
@@ -3643,6 +3662,7 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 		}
 
 	} else {
+		//被叫用户忙时不允许呼叫等待（不重试）,标志失败
 		if ((status =
 			 switch_ivr_originate(session, &peer_session, &cause, data, 0, NULL, NULL, NULL, NULL, NULL, SOF_NONE, NULL, NULL)) != SWITCH_STATUS_SUCCESS) {
 			fail = 1;
@@ -3666,8 +3686,10 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 		}
 
 		if (switch_channel_test_flag(caller_channel, CF_PROXY_MODE)) {
+			//仅进⾏信令级的桥接
 			switch_ivr_signal_bridge(session, peer_session);
 		} else {
+			//Allows you to bind a key and the bridge will terminate if the DTMF matches. 桥接终止键?
 			char *a_key = (char *) switch_channel_get_variable(caller_channel, "bridge_terminate_key");
 			char *b_key = (char *) switch_channel_get_variable(peer_channel, "bridge_terminate_key");
 			int ok = 0;

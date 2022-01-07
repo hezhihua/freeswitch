@@ -374,7 +374,7 @@ SWITCH_DECLARE(void) switch_channel_perform_audio_sync(switch_channel_t *channel
 		msg->_file = file;
 		msg->_func = func;
 		msg->_line = line;
-
+		//放入队列并唤醒线程处理
 		switch_core_session_queue_message(channel->session, msg);
 	}
 }
@@ -4922,6 +4922,9 @@ SWITCH_DECLARE(void) switch_channel_handle_cause(switch_channel_t *channel, swit
 		return;
 	}
 
+	//Allows you to transfer call flow when a called party can not be reached for specific reasons (unallocated_number, etc).
+	//<action application="set" data="transfer_on_fail=1"/>
+	// <action application="set" data="transfer_on_fail=USER_BUSY,SUBSCRIBER_ABSENT,USER_NOT_REGISTERED BRIDGE_FAILED_EXTENSION" />
 	transfer_on_fail = switch_channel_get_variable(channel, "transfer_on_fail");
 	tof_data = switch_core_session_strdup(session, transfer_on_fail);
 	switch_split(tof_data, ' ', tof_array);
@@ -4969,8 +4972,12 @@ SWITCH_DECLARE(void) switch_channel_handle_cause(switch_channel_t *channel, swit
 
 			if (continue_on_fail) {
 				if (switch_true(continue_on_fail)) {
+					//<action application="set" data="continue_on_fail=1"/>
+					//任意错误都返回,不然会被挂断(函数最后执行了switch_channel_hangup)
 					return;
 				} else {
+					//<action application="set" data="continue_on_fail=0"/>
+					//<action application="set" data="continue_on_fail=NORMAL_TEMPORARY_FAILURE,USER_BUSY,NO_ANSWER,NO_ROUTE_DESTINATION"/>
 					char *lbuf = switch_core_session_strdup(session, continue_on_fail);
 					char *argv[256] = { 0 };
 					int argc = switch_separate_string(lbuf, ',', argv, (sizeof(argv) / sizeof(argv[0])));
@@ -4978,6 +4985,7 @@ SWITCH_DECLARE(void) switch_channel_handle_cause(switch_channel_t *channel, swit
 
 					for (i = 0; i < argc; i++) {
 						if (!strcasecmp(argv[i], cause_str) || !strcasecmp(argv[i], cause_num)) {
+							//包含在指定的错误里面则返回,不然会被挂 断
 							switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG,
 											  "Continue on fail [%s]:  Cause: %s\n", continue_on_fail, cause_str);
 							return;
@@ -4986,8 +4994,10 @@ SWITCH_DECLARE(void) switch_channel_handle_cause(switch_channel_t *channel, swit
 				}
 			}
 		} else {
+			//没有配置continue_on_fail和failure_causes
 			/* no answer is *always* a reason to continue */
 			if (cause == SWITCH_CAUSE_NO_ANSWER || cause == SWITCH_CAUSE_NO_USER_RESPONSE || cause == SWITCH_CAUSE_ORIGINATOR_CANCEL) {
+				//是这几个错误则返回
 				return;
 			}
 		}
@@ -5016,6 +5026,7 @@ SWITCH_DECLARE(void) switch_channel_handle_cause(switch_channel_t *channel, swit
 					}
 				}
 				if (!x) {
+					//不在failure_causes里面，转移呼叫
 					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG,
 									  "Failure causes [%s]:  Cause: %s\n", failure_causes, cause_str);
 
@@ -5025,8 +5036,12 @@ SWITCH_DECLARE(void) switch_channel_handle_cause(switch_channel_t *channel, swit
 
 			if (transfer_on_fail) {
 				if (switch_true(transfer_on_fail)) {
+					//<action application="set" data="transfer_on_fail=1"/>
+					//任何错误返回,不然会被 挂 断
 					return;
 				} else {
+					//<action application="set" data="transfer_on_fail=0"/>
+					// <action application="set" data="transfer_on_fail=USER_BUSY,SUBSCRIBER_ABSENT,USER_NOT_REGISTERED BRIDGE_FAILED_EXTENSION" />
 					char *lbuf = switch_core_session_strdup(session, transfer_on_fail);
 					char *argv[256] = { 0 };
 					int argc = switch_separate_string(lbuf, ',', argv, (sizeof(argv) / sizeof(argv[0])));
@@ -5034,6 +5049,7 @@ SWITCH_DECLARE(void) switch_channel_handle_cause(switch_channel_t *channel, swit
 
 					for (i = 0; i < argc; i++) {
 						if (!strcasecmp(argv[i], cause_str) || !strcasecmp(argv[i], cause_num)) {
+							//在transfer_on_fail 指定的错误里面，转移呼叫
 							switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG,
 											  "Transfer on fail [%s]:  Cause: %s\n", transfer_on_fail, cause_str);
 							switch_ivr_session_transfer(session, tof_array[1], tof_array[2], tof_array[3]);
@@ -5047,6 +5063,7 @@ SWITCH_DECLARE(void) switch_channel_handle_cause(switch_channel_t *channel, swit
 
 	if (!switch_channel_test_flag(channel, CF_TRANSFER) && !switch_channel_test_flag(channel, CF_CONFIRM_BLIND_TRANSFER) &&
 		switch_channel_get_state(channel) != CS_ROUTING) {
+		//a leg 不是CF_TRANSFER，CF_CONFIRM_BLIND_TRANSFER，CS_ROUTING状态，直接挂断
 		switch_channel_hangup(channel, cause);
 	}
 }

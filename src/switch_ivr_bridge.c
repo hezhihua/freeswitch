@@ -1526,7 +1526,8 @@ static void check_bridge_export(switch_channel_t *channel, switch_channel_t *pee
 	originator_cp->callee_id_name = switch_core_strdup(originator_cp->pool, originatee_cp->callee_id_name);
 	originator_cp->callee_id_number = switch_core_strdup(originator_cp->pool, originatee_cp->callee_id_number);
 
-
+	//<action application="bridge_export" data="foo=bar"/>
+	//<action application="bridge_export" data="nolocal:foo=bar"/>
 	switch_channel_process_export(peer_channel, channel, NULL, SWITCH_BRIDGE_EXPORT_VARS_VARIABLE);
 	switch_channel_process_export(channel, peer_channel, NULL, SWITCH_BRIDGE_EXPORT_VARS_VARIABLE);
 }
@@ -1632,10 +1633,14 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 	switch_core_session_message_t msg = { 0 };
 
 	if (switch_channel_test_flag(caller_channel, CF_PROXY_MODE)) {
+		//CF_PROXY_MODE模式不交互媒体
 		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "Call has no media... Redirecting to signal bridge.\n");
 		return switch_ivr_signal_bridge(session, peer_session);
 	}
 
+	//aleg ,bleg相互赋值
+	//<action application="bridge_export" data="foo=bar"/>
+	//<action application="bridge_export" data="nolocal:foo=bar"/>
 	check_bridge_export(caller_channel, peer_channel);
 
 	switch_channel_set_flag_recursive(caller_channel, CF_MEDIA_BRIDGE_TTL);
@@ -1663,6 +1668,7 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 	a_leg->clean_exit = 0;
 	a_leg->other_leg_data = b_leg;
 
+	//对b leg 注册处理函数
 	switch_channel_add_state_handler(peer_channel, &audio_bridge_peer_state_handlers);
 
 	if (switch_channel_test_flag(peer_channel, CF_ANSWERED) && !switch_channel_test_flag(caller_channel, CF_ANSWERED)) {

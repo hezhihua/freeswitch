@@ -1058,12 +1058,13 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_queue_message(switch_core_se
 	switch_assert(session != NULL);
 
 	if (session->message_queue) {
+		//message 放入message_queue队列
 		if (switch_queue_trypush(session->message_queue, message) == SWITCH_STATUS_SUCCESS) {
 			status = SWITCH_STATUS_SUCCESS;
 		}
-
+		//给channel发送SWITCH_SIG_BREAK信号
 		switch_core_session_kill_channel(session, SWITCH_SIG_BREAK);
-
+		//唤醒session 线程
 		switch_core_session_wake_session_thread(session);
 
 	}

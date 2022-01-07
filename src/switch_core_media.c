@@ -16001,6 +16001,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_write_frame(switch_core_sess
 
 	if (switch_test_flag(frame, SFF_PROXY_PACKET) || pass_cng) {
 		/* Fast PASS! */
+		//如果是代理模式,马上转发
 		switch_mutex_lock(session->codec_write_mutex);
 		status = perform_write(session, frame, flag, stream_id);
 		switch_mutex_unlock(session->codec_write_mutex);
@@ -16008,6 +16009,8 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_write_frame(switch_core_sess
 	}
 
 	switch_mutex_lock(session->codec_write_mutex);
+
+	//不是代理模式，解码编码再发送
 
 	if (!(frame->codec && frame->codec->implementation)) {
 		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, "%s has received a bad frame with no codec!\n",
