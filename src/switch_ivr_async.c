@@ -374,7 +374,9 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 				int proceed = 0;
 				switch_regex_t *re = NULL;
 
-				
+				//dmachine->digits  要匹配的字符串
+				//bp->digits    正则表达式
+				//proceed  匹配到的元素个数
 				proceed = switch_regex_perform(dmachine->digits, bp->digits, &re, ovector, sizeof(ovector) / sizeof(ovector[0]));
 				
 				if (proceed) {
@@ -392,10 +394,10 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 					}
 					free(substituted);
 					switch_regex_safe_free(re);
-					bp->rmatch = 1;
+					bp->rmatch = 1;//匹配到
 				} else {
 					bp->substituted = NULL;
-					bp->rmatch = 0;
+					bp->rmatch = 0;//没有匹配到
 				}
 			} else {
 				switch_status_t r_status = switch_regex_match(dmachine->digits, bp->digits);

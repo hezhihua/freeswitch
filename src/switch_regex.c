@@ -87,15 +87,15 @@ SWITCH_DECLARE(int) switch_regex_perform(const char *field, const char *expressi
 		expression = tmp;
 		if (*opts) {
 			if (strchr(opts, 'i')) {
-				flags |= PCRE_CASELESS;
+				flags |= PCRE_CASELESS;//perl 语法 ：忽略大小写
 			}
 			if (strchr(opts, 's')) {
-				flags |= PCRE_DOTALL;
+				flags |= PCRE_DOTALL;//"."匹配任意字符
 			}
 		}
 	}
 
-	re = pcre_compile(expression,	/* the pattern */
+	re = pcre_compile(expression,	/* 正则表达式 the pattern */
 					  flags,	/* default options */
 					  &error,	/* for error message */
 					  &erroffset,	/* for error offset */
@@ -108,11 +108,11 @@ SWITCH_DECLARE(int) switch_regex_perform(const char *field, const char *expressi
 
 	match_count = pcre_exec(re,	/* result of pcre_compile() */
 							NULL,	/* we didn't study the pattern */
-							field,	/* the subject string */
+							field,	/* the subject string    要匹配的字符串*/
 							(int) strlen(field),	/* the length of the subject string */
 							0,	/* start at offset 0 in the subject */
 							0,	/* default options */
-							ovector,	/* vector of integers for substring information */
+							ovector,	/* vector of integers for substring information 匹配串的偏移位置*/
 							olen);	/* number of elements (NOT size in bytes) */
 
 
@@ -125,9 +125,11 @@ SWITCH_DECLARE(int) switch_regex_perform(const char *field, const char *expressi
 
   end:
 	switch_safe_free(tmp);
+	//匹配多少 个
 	return match_count;
 }
 
+//data ?
 SWITCH_DECLARE(void) switch_perform_substitution(switch_regex_t *re, int match_count, const char *data, const char *field_data,
 												 char *substituted, switch_size_t len, int *ovector)
 {
@@ -173,7 +175,11 @@ SWITCH_DECLARE(void) switch_perform_substitution(switch_regex_t *re, int match_c
 			if (num < 0 || num > 256) {
 				num = -1;
 			}
-
+            //field_data 为要匹配的字符串
+			//ovector       pcre_exec() 使用的偏移向量
+			//match_count    pcre_exec()的返回值 
+			//num  获取的字符串编号
+			//replace字符串指针 
 			if (pcre_get_substring(field_data, ovector, match_count, num, &replace) >= 0) {
 				if (replace) {
 					switch_size_t r;

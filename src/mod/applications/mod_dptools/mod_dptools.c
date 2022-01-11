@@ -3686,7 +3686,7 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 		}
 
 		if (switch_channel_test_flag(caller_channel, CF_PROXY_MODE)) {
-			//仅进⾏信令级的桥接
+			//CF_PROXY_MODE模式仅进⾏信令级的桥接
 			switch_ivr_signal_bridge(session, peer_session);
 		} else {
 			//Allows you to bind a key and the bridge will terminate if the DTMF matches. 桥接终止键?
@@ -3709,7 +3709,7 @@ SWITCH_STANDARD_APP(audio_bridge_function)
 				a_key = NULL;
 				b_key = NULL;
 			}
-
+			//一个线程一个channel进行桥接
 			switch_ivr_multi_threaded_bridge(session, peer_session, func, a_key, b_key);
 		}
 

@@ -630,6 +630,8 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_check_autoadj(switch_core_sess
 		!((val = switch_channel_get_variable(session->channel, "disable_rtp_auto_adjust")) && switch_true(val)) &&
 		!switch_channel_test_flag(session->channel, CF_AVPF)) {
 		/* Reactivate the NAT buster flag. */
+		//<param name="disable-rtp-auto-adjust" value="true"/>
+		//关闭RTP地址自动校正功能
 
 		if (a_engine->rtp_session) {
 			switch_rtp_set_flag(a_engine->rtp_session, SWITCH_RTP_FLAG_AUTOADJ);

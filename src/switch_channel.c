@@ -2244,6 +2244,7 @@ SWITCH_DECLARE(int) switch_channel_state_change_pending(switch_channel_t *channe
 
 SWITCH_DECLARE(int) switch_channel_check_signal(switch_channel_t *channel, switch_bool_t in_thread_only)
 {
+	//SWITCH_FALSE 表示只处理一条sip消息
 	switch_ivr_parse_signal_data(channel->session, SWITCH_FALSE, in_thread_only);
 	return 0;
 }
@@ -2253,10 +2254,14 @@ SWITCH_DECLARE(int) switch_channel_test_ready(switch_channel_t *channel, switch_
 	int ret = 0;
 
 	switch_assert(channel != NULL);
-
+	//处理一下channel收到的sip消息
 	switch_channel_check_signal(channel, SWITCH_TRUE);
 
 	if (check_media) {
+		//已经回复
+		//或者
+		//已回180并且非代理模式并且有设置了读写解码器
+		//
 		ret = ((switch_channel_test_flag(channel, CF_ANSWERED) ||
 				switch_channel_test_flag(channel, CF_EARLY_MEDIA)) && !switch_channel_test_flag(channel, CF_PROXY_MODE) &&
 			   switch_core_session_get_read_codec(channel->session) && switch_core_session_get_write_codec(channel->session));
@@ -2270,7 +2275,7 @@ SWITCH_DECLARE(int) switch_channel_test_ready(switch_channel_t *channel, switch_
 		return ret;
 
 	ret = 0;
-
+	//检查channel 状态须在（CS_ROUTING，CS_HANGUP）之间
 	if (!channel->hangup_cause && channel->state > CS_ROUTING && channel->state < CS_HANGUP && channel->state != CS_RESET &&
 		!switch_channel_test_flag(channel, CF_TRANSFER) && !switch_channel_test_flag(channel, CF_NOT_READY) &&
 		!switch_channel_state_change_pending(channel)) {
@@ -3784,6 +3789,7 @@ SWITCH_DECLARE(switch_status_t) switch_channel_execute_on_value(switch_channel_t
 			arg = p;
 			break;
 		} else if (*p == ':' && (*(p+1) == ':')) {
+			//"::"后台执行
 			bg++;
 			break;
 		}
@@ -3791,6 +3797,7 @@ SWITCH_DECLARE(switch_status_t) switch_channel_execute_on_value(switch_channel_t
 
 	switch_assert(app != NULL);
 	if (!strncasecmp(app, "perl", 4)) {
+		//perl开头的也是后台执行
 		bg++;
 	}
 
@@ -3801,6 +3808,7 @@ SWITCH_DECLARE(switch_status_t) switch_channel_execute_on_value(switch_channel_t
 	}
 	
 	if (bg) {
+		//后台执行
 		status = switch_core_session_execute_application_async(channel->session, app, arg);
 	} else {
 		status = switch_core_session_execute_application(channel->session, app, arg);
@@ -3829,12 +3837,14 @@ SWITCH_DECLARE(switch_status_t) switch_channel_execute_on(switch_channel_t *chan
 
 		if (!strncasecmp(var, variable_prefix, strlen(variable_prefix))) {
 			if (hp->idx) {
+				//要执行一组的app
 				int i;
 				for (i = 0; i < hp->idx; i++) {
 					x++;
 					switch_channel_execute_on_value(channel, hp->array[i]);
 				}
 			} else {
+				//要执行一个的app
 				x++;
 				switch_channel_execute_on_value(channel, val);
 			}
@@ -3873,6 +3883,7 @@ SWITCH_DECLARE(switch_status_t) switch_channel_perform_mark_answered(switch_chan
 	}
 
 	switch_channel_check_zrtp(channel);
+	//设置CF_ANSWERED标志
 	switch_channel_set_flag(channel, CF_ANSWERED);
 
 	if (switch_true(switch_channel_get_variable(channel, "video_mirror_input"))) {
@@ -3880,7 +3891,7 @@ SWITCH_DECLARE(switch_status_t) switch_channel_perform_mark_answered(switch_chan
 		//switch_channel_set_flag(channel, CF_VIDEO_DECODED_READ);
 	}
 
-
+	//发送事件
 	if (switch_event_create(&event, SWITCH_EVENT_CHANNEL_ANSWER) == SWITCH_STATUS_SUCCESS) {
 		switch_channel_event_set_data(channel, event);
 		switch_event_fire(&event);
@@ -3929,14 +3940,20 @@ SWITCH_DECLARE(switch_status_t) switch_channel_perform_mark_answered(switch_chan
 			switch_channel_set_variable(channel, "absolute_codec_string", NULL);
 		}
 	}
-
+	//当对端接听后，FreeSWITCH就会执行execute_on_answer 所指定的App
 	switch_channel_execute_on(channel, SWITCH_CHANNEL_EXECUTE_ON_ANSWER_VARIABLE);
 
 	if (!switch_channel_test_flag(channel, CF_EARLY_MEDIA)) {
+		//execute_on_media信号音检测
 		switch_channel_execute_on(channel, SWITCH_CHANNEL_EXECUTE_ON_MEDIA_VARIABLE);
+		//api_on_media 
+		//Execute a FreeSWITCH API command when the far end sends media, i.e. ringing or 183/SDP.
+		//The command is executed only on channels that are not already answered. Just use export or export with nolocal: prefix to make sure it is executed when b-leg answers.
 		switch_channel_api_on(channel, SWITCH_CHANNEL_API_ON_MEDIA_VARIABLE);
 	}
 
+    //Execute an api (not an application) when the called party answers. To set an application, use execute_on_answer.
+	//<action application="export" data="nolocal:api_on_answer=uuid_broadcast ${uuid} beep.wav both"/>
 	switch_channel_api_on(channel, SWITCH_CHANNEL_API_ON_ANSWER_VARIABLE);
 
 	switch_channel_presence(channel, "unknown", "answered", NULL);
@@ -3949,6 +3966,7 @@ SWITCH_DECLARE(switch_status_t) switch_channel_perform_mark_answered(switch_chan
 	
 	switch_channel_set_callstate(channel, CCS_ACTIVE);
 
+	//
 	send_ind(channel, SWITCH_MESSAGE_ANSWER_EVENT, file, func, line);
 
 	switch_core_media_check_autoadj(channel->session);

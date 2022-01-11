@@ -890,6 +890,7 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_parse_signal_data(switch_core_session
 		i++;
 
 		msg.pointer_arg = data;
+		//处理队列里面的sip消息
 		switch_core_session_receive_message(session, &msg);
 
 		data = NULL;

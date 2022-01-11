@@ -89,10 +89,13 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_read_frame(switch_core_sessi
 	}
 
 	if (!(session->read_codec && session->read_codec->implementation && switch_core_codec_ready(session->read_codec))) {
+		//编码器没有准备好
 		if (switch_channel_test_flag(session->channel, CF_PROXY_MODE) || switch_channel_get_state(session->channel) == CS_HIBERNATE) {
+			//是代理 模式，状态空闲
 			switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_CRIT, "%s reading on a session with no media!\n",
 							  switch_channel_get_name(session->channel));
 			switch_cond_next();
+			//静音包
 			*frame = &runtime.dummy_cng_frame;
 			return SWITCH_STATUS_SUCCESS;
 		}
@@ -115,6 +118,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_read_frame(switch_core_sessi
 		switch_mutex_unlock(session->codec_read_mutex);
 		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, "%s has no read codec.\n", switch_channel_get_name(session->channel));
 		switch_channel_hangup(session->channel, SWITCH_CAUSE_INCOMPATIBLE_DESTINATION);
+		//没有编码器返回静音包
 		*frame = &runtime.dummy_cng_frame;
 		return SWITCH_STATUS_FALSE;
 	}
@@ -126,6 +130,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_read_frame(switch_core_sessi
 	for(i = 0; i < 2; i++) {
 		if (session->dmachine[i]) {
 			switch_channel_dtmf_lock(session->channel);
+			//如果在读的过程中读到 DTMF，则 Ping ⼀下状态机，通知有 DTMF
 			switch_ivr_dmachine_ping(session->dmachine[i], NULL);
 			switch_channel_dtmf_unlock(session->channel);
 		}

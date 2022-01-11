@@ -855,6 +855,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_perform_receive_message(swit
 
 	if (message->message_id == SWITCH_MESSAGE_INDICATE_SIGNAL_DATA) {
 		if (session->endpoint_interface->io_routines->receive_message) {
+			//sofia_receive_message?
 			status = session->endpoint_interface->io_routines->receive_message(session, message);
 		}
 
@@ -862,6 +863,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_perform_receive_message(swit
 		return status;
 	}
 
+	//获取锁
 	if ((status = switch_core_session_read_lock_hangup(session)) != SWITCH_STATUS_SUCCESS) {
 		return status;
 	}
@@ -932,6 +934,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_perform_receive_message(swit
 		}
 		if (status == SWITCH_STATUS_SUCCESS) {
 			if (session->endpoint_interface->io_routines->receive_message) {
+				//sofia_receive_message?
 				status = session->endpoint_interface->io_routines->receive_message(session, message);
 			}
 		}
@@ -2679,6 +2682,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_get_app_flags(const char *ap
 
 }
 
+//异步执行app
 SWITCH_DECLARE(switch_status_t) switch_core_session_execute_application_async(switch_core_session_t *session, const char *app, const char *arg)
 {
 	switch_event_t *execute_event;

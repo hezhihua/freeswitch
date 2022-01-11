@@ -1672,15 +1672,18 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 	switch_channel_add_state_handler(peer_channel, &audio_bridge_peer_state_handlers);
 
 	if (switch_channel_test_flag(peer_channel, CF_ANSWERED) && !switch_channel_test_flag(caller_channel, CF_ANSWERED)) {
+		//被叫 已经应答,但未对 主叫 应答，先应答 主叫
 		switch_channel_pass_callee_id(peer_channel, caller_channel);
 		switch_channel_answer(caller_channel);
 	}
 
 	if (switch_channel_test_flag(peer_channel, CF_ANSWERED) || switch_channel_test_flag(peer_channel, CF_EARLY_MEDIA) ||
 		switch_channel_test_flag(peer_channel, CF_RING_READY)) {
+		//被 叫回应100，180或者183？
 		const char *app, *data;
 
  		if (!switch_channel_ready(caller_channel)) {
+			 //主叫io未准备好,挂断
 			abort_call(caller_channel, peer_channel);
 			goto done;
 		}
@@ -1690,7 +1693,7 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 		}
 
 		switch_channel_set_variable(peer_channel, "call_uuid", switch_core_session_get_uuid(session));
-
+		//设置bridge时间
 		switch_channel_set_bridge_time(caller_channel);
 		switch_channel_set_bridge_time(peer_channel);
 
@@ -1699,11 +1702,12 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 			switch_event_add_header_string(event, SWITCH_STACK_BOTTOM, "Bridge-B-Unique-ID", switch_core_session_get_uuid(peer_session));
 			switch_channel_event_set_data(caller_channel, event);
 			switch_event_add_presence_data_cols(peer_channel, event, "Bridge-B-PD-");
-			switch_event_fire(&event);
+			switch_event_fire(&event);//发送事件
 			br = 1;
 		}
 
 		if (switch_core_session_read_lock(peer_session) == SWITCH_STATUS_SUCCESS) {
+			// 设置 a,b leg bridge_to和last_bridge_to变量
 			switch_channel_set_variable(caller_channel, SWITCH_BRIDGE_VARIABLE, switch_core_session_get_uuid(peer_session));
 			switch_channel_set_variable(peer_channel, SWITCH_BRIDGE_VARIABLE, switch_core_session_get_uuid(session));
 			switch_channel_set_variable(caller_channel, SWITCH_LAST_BRIDGE_VARIABLE, switch_core_session_get_uuid(peer_session));
@@ -1717,6 +1721,9 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 
 			if (!switch_channel_media_ready(caller_channel) ||
 				(!switch_channel_test_flag(peer_channel, CF_ANSWERED) && !switch_channel_test_flag(peer_channel, CF_EARLY_MEDIA))) {
+				//主叫io未准备好
+				//或者
+				//被 叫未回100也未回183	
 				if ((status = switch_ivr_wait_for_answer(session, peer_session)) != SWITCH_STATUS_SUCCESS || !switch_channel_ready(caller_channel)) {
 					switch_channel_state_t w_state = switch_channel_get_state(caller_channel);
 					switch_channel_hangup(peer_channel, SWITCH_CAUSE_ALLOTTED_TIMEOUT);

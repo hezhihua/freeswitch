@@ -959,12 +959,14 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 	}
 
 	if ((switch_channel_test_flag(peer_channel, CF_ANSWERED) || switch_channel_test_flag(peer_channel, CF_EARLY_MEDIA))) {
+		//被 叫已经回100或者183
 		goto end;
 	}
 
 	switch_zmalloc(write_frame.data, SWITCH_RECOMMENDED_BUFFER_SIZE);
 	write_frame.buflen = SWITCH_RECOMMENDED_BUFFER_SIZE;
 
+	//主叫的超时时间，如果没有配置call_timeout则取默认值,单位秒
 	if (caller_channel && (var = switch_channel_get_variable(caller_channel, SWITCH_CALL_TIMEOUT_VARIABLE))) {
 		timelimit = atoi(var);
 		if (timelimit < 0) {
@@ -976,20 +978,27 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 	start = switch_micro_time_now();
 
 	if (caller_channel) {
+		//cancel_key作用是如果长时间不应答，按cancel_key键，比如“#”取消呼叫
 		cancel_key = switch_channel_get_variable(caller_channel, "origination_cancel_key");
 
 		if (switch_channel_test_flag(caller_channel, CF_ANSWERED)) {
+			//主叫已经响应
+			//This is the sound that will play if a call has already been answered, and it is then transferred to another endpoint
+			
 			ringback_data = switch_channel_get_variable(caller_channel, "transfer_ringback");
 		}
 
 		if (!ringback_data) {
+			//如果transfer_ringback没有配置,则取ringback的配置
 			ringback_data = switch_channel_get_variable(caller_channel, "ringback");
 		}
 
 		if (switch_channel_test_flag(caller_channel, CF_PROXY_MODE) || switch_channel_test_flag(caller_channel, CF_PROXY_MEDIA)) {
+			//代理模式不用播放铃音
 			ringback_data = NULL;
 		} else if (zstr(ringback_data)) {
 			if ((var = switch_channel_get_variable(caller_channel, SWITCH_SEND_SILENCE_WHEN_IDLE_VARIABLE))) {
+				//有配置静音播放
 				int sval = atoi(var);
 
 				if (sval) {
@@ -1010,6 +1019,8 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 
 
 		if (!ringback.asis) {
+			// 是本地文件,非网络文件 
+			//SWITCH_CODEC_FLAG_PASSTHROUGH 透传
 			if ((pass = (uint8_t) switch_test_flag(read_codec, SWITCH_CODEC_FLAG_PASSTHROUGH))) {
 				goto no_ringback;
 			}
@@ -1109,15 +1120,18 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 	}
 
 	while (switch_channel_ready(peer_channel) && !switch_channel_media_ready(peer_channel)) {
+		//switch_channel_ready 处理了peer_channel回复的一条消息
 		int diff = (int) (switch_micro_time_now() - start);
-
+		//处理了peer_channel回复的所有消息
 		switch_ivr_parse_all_messages(session);
 
 		if (caller_channel && cancel_key) {
 			if (switch_channel_has_dtmf(caller_channel)) {
+				//主叫用户输入了键
 				switch_dtmf_t dtmf = { 0, 0 };
 				if (switch_channel_dequeue_dtmf(caller_channel, &dtmf) == SWITCH_STATUS_SUCCESS) {
 					if (dtmf.digit == *cancel_key) {
+						//用户输入的按键包含取消按键
 						status = SWITCH_STATUS_FALSE;
 						goto done;
 					}
@@ -1126,10 +1140,12 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 		}
 
 		if (caller_channel && switch_channel_get_state(caller_channel) != wait_state) {
+			//主叫状态已经改变
 			goto done;
 		}
 
 		if (diff > timelimit) {
+			//处理被 叫消息已经超时
 			status = SWITCH_STATUS_TIMEOUT;
 			goto done;
 		}
