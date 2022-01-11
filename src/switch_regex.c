@@ -130,6 +130,7 @@ SWITCH_DECLARE(int) switch_regex_perform(const char *field, const char *expressi
 }
 
 //data ?
+//substituted 匹配结果放这里
 SWITCH_DECLARE(void) switch_perform_substitution(switch_regex_t *re, int match_count, const char *data, const char *field_data,
 												 char *substituted, switch_size_t len, int *ovector)
 {
