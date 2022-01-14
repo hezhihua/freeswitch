@@ -1173,6 +1173,7 @@ static switch_status_t sofia_read_frame(switch_core_session_t *session, switch_f
 	}
 
 	if (!(switch_core_media_ready(tech_pvt->session, SWITCH_MEDIA_TYPE_AUDIO))){
+		//未准备好
 		return SWITCH_STATUS_INUSE;
 	}
 
@@ -1379,12 +1380,14 @@ static switch_status_t sofia_receive_message(switch_core_session_t *session, swi
 
 			if (sofia_test_flag(tech_pvt, TFLAG_KEEPALIVE)) {
 				if (tech_pvt->profile->keepalive == KA_MESSAGE) {
+					//Send an instant message.
 					nua_message(tech_pvt->nh,
 								SIPTAG_CONTENT_TYPE_STR("text/plain"),
 								TAG_IF(!zstr(tech_pvt->user_via), SIPTAG_VIA_STR(tech_pvt->user_via)),
 								SIPTAG_PAYLOAD_STR(pl),
 								TAG_END());
 				} else if (tech_pvt->profile->keepalive == KA_INFO) {
+					//Send an INFO request.
 					nua_info(tech_pvt->nh,
 							 SIPTAG_CONTENT_TYPE_STR("text/plain"),
 							 TAG_IF(!zstr(tech_pvt->user_via), SIPTAG_VIA_STR(tech_pvt->user_via)),

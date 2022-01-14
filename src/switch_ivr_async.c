@@ -358,7 +358,20 @@ typedef enum {
 	DM_MATCH_NEVER
 } dm_match_t;
 
-
+//<include> <menus> <menu name="welcome" 
+//greet-long="welcome.wav" 
+//greet-short="welcom_short.wav" 
+//invalid-sound="ivr/ivr- that_was_an_invalid_entry.wav" 
+//exit-sound="voicemail/vm-goodbye.wav" 
+//timeout="15000" 
+//max-failures="3" max-timeouts="3" 
+//inter-digit-timeout="2000" 
+//digit-len="4">
+//<entry action="menu-exec-app" digits="0" param="transfer 1000 XML default"/> 
+//<entry action="menu-exec-app" digits="/^(10[01][0-9])$/" param="transfer $1 XML default"/> 
+//</menu> 
+//</menus> 
+//</include>
 static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachine, switch_bool_t is_timeout)
 {
 	dm_match_t best = DM_MATCH_NONE;
@@ -374,8 +387,8 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 				int proceed = 0;
 				switch_regex_t *re = NULL;
 
-				//dmachine->digits  要匹配的字符串
-				//bp->digits    正则表达式
+				//dmachine->digits  要匹配的字符串 ,用户输入
+				//bp->digits    正则表达式，配置文件配置的正式表达式
 				//proceed  匹配到的元素个数
 				proceed = switch_regex_perform(dmachine->digits, bp->digits, &re, ovector, sizeof(ovector) / sizeof(ovector[0]));
 				
@@ -390,6 +403,7 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 					switch_perform_substitution(re, proceed, bp->repl, dmachine->digits, substituted, len, ovector);
 
 					if (!bp->substituted || strcmp(substituted, bp->substituted)) {
+						//空或者和匹配的不相等，取匹配到的
 						bp->substituted = switch_core_strdup(dmachine->pool, substituted);
 					}
 					free(substituted);
@@ -410,7 +424,9 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 			if (bp->rmatch && bp->first_match) break;
 			
 		} else {
+			//非正则表达式,直接比较字符串
 			if (!strncmp(dmachine->digits, bp->digits, strlen(dmachine->digits))) {
+				//匹配
 				pmatches++;
 				if (dmachine->cur_digit_len == strlen(bp->digits)) {
 					ematches++;
@@ -419,12 +435,15 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 		}
 	}
 
+	//play_and_get_digits terminators：结束符
+	//结束符非空,在用户输入里面查找结束符
 	if (!zstr(dmachine->realm->terminators)) {
 		char *p = dmachine->realm->terminators;
 		char *q;
 
 		while(p && *p) {
 			if ((q=strrchr(dmachine->digits, *p))) {
+				//输入有结束符
 				*q = '\0';
 				is_timeout = 1;
 				break;
@@ -435,6 +454,7 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 
 	for(bp = dmachine->realm->binding_list; bp; bp = bp->next) {
 		if (bp->is_regex) {
+			//是正则表达式
 			if (bp->rmatch) {
 				if (bp->first_match || (bp->is_priority && ! ematches) || is_timeout || (bp == dmachine->realm->binding_list && !bp->next)) {
 					best = DM_MATCH_EXACT;
@@ -444,10 +464,11 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 				best = DM_MATCH_PARTIAL;
 			}
 		} else {
+			//非正则表达式,直接比较字符串
 			int pmatch = !strncmp(dmachine->digits, bp->digits, strlen(dmachine->digits));
 
 			if (!exact_bp && pmatch && (bp->first_match || !rmatches || bp->is_priority || is_timeout) && !strcmp(bp->digits, dmachine->digits)) {
-				best = DM_MATCH_EXACT;
+				best = DM_MATCH_EXACT;//完全匹配
 				exact_bp = bp;
 				if (bp->first_match || bp->is_priority || dmachine->cur_digit_len == dmachine->max_digit_len) break;
 			}
@@ -458,7 +479,7 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 					best = DM_MATCH_BOTH;
 					both_bp = bp;
 				} else {
-					best = DM_MATCH_PARTIAL;
+					best = DM_MATCH_PARTIAL;//部分匹配
 					partial_bp = bp;
 				}
 			}
@@ -468,7 +489,7 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 	}
 
 	if (!pmatches) {
-		best = DM_MATCH_NEVER;
+		best = DM_MATCH_NEVER;//不匹配
 	}
 
 
@@ -499,7 +520,7 @@ static dm_match_t switch_ivr_dmachine_check_match(switch_ivr_dmachine_t *dmachin
 	return best;
 
 }
-
+//检测按键是否超时?
 static switch_bool_t switch_ivr_dmachine_check_timeout(switch_ivr_dmachine_t *dmachine)
 {
 	switch_time_t now = switch_time_now();
@@ -534,7 +555,9 @@ SWITCH_DECLARE(const char *) switch_ivr_dmachine_get_failed_digits(switch_ivr_dm
 
 SWITCH_DECLARE(switch_status_t) switch_ivr_dmachine_ping(switch_ivr_dmachine_t *dmachine, switch_ivr_dmachine_match_t **match_p)
 {
+	//检测输入按键是否超时
 	switch_bool_t is_timeout = switch_ivr_dmachine_check_timeout(dmachine);
+	//输入是否匹配规则
 	dm_match_t is_match = switch_ivr_dmachine_check_match(dmachine, is_timeout);
 	switch_status_t r, s;
 	int clear = 0;

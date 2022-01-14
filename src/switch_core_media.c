@@ -2925,7 +2925,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 	}
 
 	if (smh->read_mutex[type] && switch_mutex_trylock(smh->read_mutex[type]) != SWITCH_STATUS_SUCCESS) {
-		/* return CNG, another thread is already reading  */
+		/* return CNG, another thread is already reading  返回静音包,获取不了锁证明另一个线程正在读*/
 		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG1, "%s is already being read for %s\n",
 						  switch_channel_get_name(session->channel), type2str(type));
 		return SWITCH_STATUS_INUSE;
@@ -2940,6 +2940,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 
 	while (smh->media_flags[SCMF_RUNNING] && engine->read_frame.datalen == 0) {
 		engine->read_frame.flags = SFF_NONE;
+		//读socket，读的包放到了engine->read_frame
 		status = switch_rtp_zerocopy_read_frame(engine->rtp_session, &engine->read_frame, flags);
 
 
@@ -2971,6 +2972,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 		}
 
 		if (type == SWITCH_MEDIA_TYPE_VIDEO) {
+			//视频
 			if (engine->read_frame.m) {
 				if (!smh->vid_started) {
 					smh->vid_started = switch_epoch_time_now(NULL);

@@ -176,6 +176,7 @@ SWITCH_DECLARE(void) switch_perform_substitution(switch_regex_t *re, int match_c
 			if (num < 0 || num > 256) {
 				num = -1;
 			}
+			//pcre_get_substring 获取匹配的子串
             //field_data 为要匹配的字符串
 			//ovector       pcre_exec() 使用的偏移向量
 			//match_count    pcre_exec()的返回值 

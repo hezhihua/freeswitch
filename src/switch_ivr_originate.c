@@ -1145,12 +1145,13 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 		}
 
 		if (diff > timelimit) {
-			//处理被 叫消息已经超时
+			//处理被叫sip消息已经超时
 			status = SWITCH_STATUS_TIMEOUT;
 			goto done;
 		}
 
 		if (switch_channel_media_ready(caller_channel)) {
+			//处理了主叫回复的一条消息
 			status = switch_core_session_read_frame(session, &read_frame, SWITCH_IO_FLAG_NONE, 0);
 			if (!SWITCH_READ_ACCEPTABLE(status)) {
 				break;

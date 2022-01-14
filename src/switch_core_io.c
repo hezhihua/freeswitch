@@ -130,7 +130,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_read_frame(switch_core_sessi
 	for(i = 0; i < 2; i++) {
 		if (session->dmachine[i]) {
 			switch_channel_dtmf_lock(session->channel);
-			//如果在读的过程中读到 DTMF，则 Ping ⼀下状态机，通知有 DTMF
+			//如果在读的过程中读到 DTMF，检测用户输入
 			switch_ivr_dmachine_ping(session->dmachine[i], NULL);
 			switch_channel_dtmf_unlock(session->channel);
 		}
@@ -152,13 +152,15 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_read_frame(switch_core_sessi
 		if (session->read_frame_count == 0) {
 			switch_event_t *event;
 			switch_core_session_message_t msg = { 0 };
-
+			//要读的帧数=（每秒采样数(即采样率)/每个包（即一帧）的采样数） * 时间
 			session->read_frame_count = (session->read_impl.samples_per_second / session->read_impl.samples_per_packet) * session->track_duration;
 
 			msg.message_id = SWITCH_MESSAGE_HEARTBEAT_EVENT;
 			msg.numeric_arg = session->track_duration;
+			//实际上调用了 sofia_receive_message 发送sip请求
 			switch_core_session_receive_message(session, &msg);
 
+			//触发一个 SWITCH_EVENT_SESSION_HEARTBEAT 事件
 			switch_event_create(&event, SWITCH_EVENT_SESSION_HEARTBEAT);
 			switch_channel_event_set_data(session->channel, event);
 			switch_event_fire(&event);
@@ -169,6 +171,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_read_frame(switch_core_sessi
 
 
 	if (switch_channel_test_flag(session->channel, CF_HOLD)) {
+		//设置了CF_HOLD字段,则每读个包休息一会
 		switch_yield(session->read_impl.microseconds_per_packet);
 		status = SWITCH_STATUS_BREAK;
 		goto even_more_done;
@@ -177,6 +180,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_read_frame(switch_core_sessi
 	if (session->endpoint_interface->io_routines->read_frame) {
 		switch_mutex_unlock(session->read_codec->mutex);
 		switch_mutex_unlock(session->codec_read_mutex);
+		//调用 sofia_read_frame
 		if ((status = session->endpoint_interface->io_routines->read_frame(session, frame, flags, stream_id)) == SWITCH_STATUS_SUCCESS) {
 			for (ptr = session->event_hooks.read_frame; ptr; ptr = ptr->next) {
 				if ((status = ptr->read_frame(session, frame, flags, stream_id)) != SWITCH_STATUS_SUCCESS) {
@@ -186,6 +190,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_read_frame(switch_core_sessi
 		}
 
 		if (status == SWITCH_STATUS_INUSE) {
+			//另一个线程正在读或者未准备好,则返回静音包
 			*frame = &runtime.dummy_cng_frame;
 			switch_yield(20000);
 			return SWITCH_STATUS_SUCCESS;
