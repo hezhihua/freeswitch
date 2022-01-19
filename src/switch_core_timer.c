@@ -41,13 +41,14 @@ SWITCH_DECLARE(switch_status_t) switch_core_timer_init(switch_timer_t *timer, co
 	switch_timer_interface_t *timer_interface;
 	switch_status_t status;
 	memset(timer, 0, sizeof(*timer));
+	//根据定时器名字查找定时器接口
 	if ((timer_interface = switch_loadable_module_get_timer_interface(timer_name)) == 0 || !timer_interface->timer_init) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "invalid timer %s!\n", timer_name);
 		return SWITCH_STATUS_GENERR;
 	}
 
-	timer->interval = interval;
-	timer->samples = samples;
+	timer->interval = interval;//interval 传输一个需要的毫秒数
+	timer->samples = samples;//samples 每个包的样本数
 	timer->samplecount = samples;
 	timer->timer_interface = timer_interface;
 
@@ -60,7 +61,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_timer_init(switch_timer_t *timer, co
 		}
 		switch_set_flag(timer, SWITCH_TIMER_FLAG_FREE_POOL);
 	}
-
+	//定时器初始化
 	return timer->timer_interface->timer_init(timer);
 }
 

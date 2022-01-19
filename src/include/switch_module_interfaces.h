@@ -722,15 +722,15 @@ struct switch_codec_implementation {
 	char *iananame;
 	/*! default fmtp to send (can be overridden by the init function) */
 	char *fmtp;
-	/*! samples transferred per second */
+	/*! samples transferred per second 采样率,即一秒传输多少个样本*/
 	uint32_t samples_per_second;
 	/*! actual samples transferred per second for those who are not moron g722 RFC writers */
 	uint32_t actual_samples_per_second;
 	/*! bits transferred per second */
 	int bits_per_second;
-	/*! number of microseconds of media in one packet (ptime * 1000) */
+	/*! number of microseconds of media in one packet (ptime * 1000) 传输一个包所需要的时间，单位为微秒,比如20ms即20ms*1000微秒*/
 	int microseconds_per_packet;
-	/*! number of samples in one packet */
+	/*! number of samples in one packet 一个包包含多少个样本*/
 	uint32_t samples_per_packet;
 	/*! number of bytes one packet will decompress to */
 	uint32_t decoded_bytes_per_packet;

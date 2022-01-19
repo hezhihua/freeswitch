@@ -2435,21 +2435,24 @@ static void check_jb(switch_core_session_t *session, const char *input, int32_t 
 		return;
 	}
 
-	a_engine = &smh->engines[SWITCH_MEDIA_TYPE_AUDIO];
-	v_engine = &smh->engines[SWITCH_MEDIA_TYPE_VIDEO];
-	t_engine = &smh->engines[SWITCH_MEDIA_TYPE_TEXT];
+	a_engine = &smh->engines[SWITCH_MEDIA_TYPE_AUDIO];//音频引擎
+	v_engine = &smh->engines[SWITCH_MEDIA_TYPE_VIDEO];//视频引擎
+	t_engine = &smh->engines[SWITCH_MEDIA_TYPE_TEXT];//文本引擎
 
 
 	if (!zstr(input)) {
 		const char *s;
 		if (a_engine->rtp_session) {
 			if (!strcasecmp(input, "pause")) {
+				//jitter_buffer抖动缓冲区,暂停jitter_buffer
 				switch_rtp_pause_jitter_buffer(a_engine->rtp_session, SWITCH_TRUE);
 				return;
 			} else if (!strcasecmp(input, "resume")) {
+				//恢复jitter_buffer
 				switch_rtp_pause_jitter_buffer(a_engine->rtp_session, SWITCH_FALSE);
 				return;
 			} else if (!strcasecmp(input, "stop")) {
+				//停止jitter_buffer
 				switch_rtp_deactivate_jitter_buffer(a_engine->rtp_session);
 				return;
 			} else if (!strncasecmp(input, "debug:", 6)) {
@@ -2519,7 +2522,10 @@ static void check_jb(switch_core_session_t *session, const char *input, int32_t 
 		}
 	}
 
-
+//毫秒 millisecond; 微秒 microsecond 
+//< action  application = "set"  data = "jitterbuffer_msec=60:200:20" />
+//jitterbuffer_msec包含三个参数，分别是缓存长度，做大长度，以及每个包的时长间隔，单位都是毫秒
+//正常语音包 8000HZ 采样率，每个包20毫秒，1秒50个rtp包，如上例子是缓存3个rtp包(一个包20毫秒)，最大缓存10个，每个包大小20毫秒
 	if (jb_msec || (val = switch_channel_get_variable(session->channel, "jitterbuffer_msec")) || (val = smh->mparams->jb_msec)) {
 		char *p;
 
@@ -2541,7 +2547,7 @@ static void check_jb(switch_core_session_t *session, const char *input, int32_t 
 			}
 		}
 
-		if (!maxlen) maxlen = jb_msec * 50;
+		if (!maxlen) maxlen = jb_msec * 50;//一秒50个rtp包
 		
 		if (jb_msec < 0 && jb_msec > -1000) {
 			jb_msec = (a_engine->read_codec.implementation->microseconds_per_packet / 1000) * abs(jb_msec);
@@ -2571,6 +2577,7 @@ static void check_jb(switch_core_session_t *session, const char *input, int32_t 
 			if (maxqlen < qlen) {
 				maxqlen = qlen * 5;
 			}
+			//创建jitter_buffer
 			if (switch_rtp_activate_jitter_buffer(a_engine->rtp_session, qlen, maxqlen,
 												  a_engine->read_impl.samples_per_packet,
 												  a_engine->read_impl.samples_per_second) == SWITCH_STATUS_SUCCESS) {
@@ -2989,7 +2996,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 			}
 		}
 
-		/* re-set codec if necessary */
+		/* re-set codec if necessary 重新设置 一下编码器*/
 		if (type != SWITCH_MEDIA_TYPE_TEXT && engine->reset_codec > 0) {
 			const char *val;
 			int rtp_timeout_sec = 0;
@@ -2998,13 +3005,13 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 			engine->reset_codec = 0;
 
 			if (switch_rtp_ready(engine->rtp_session)) {
-
+				//获取等media_timeout参数设置 到engine
 				check_media_timeout_params(session, engine);
 
 				if (type == SWITCH_MEDIA_TYPE_VIDEO) {
 					switch_core_media_set_video_codec(session, 1);
 				} else {
-
+					//设置 编码器
 					if (switch_core_media_set_codec(session, 1, smh->mparams->codec_flags) != SWITCH_STATUS_SUCCESS) {
 						*frame = NULL;
 						switch_goto_status(SWITCH_STATUS_GENERR, end);
@@ -3013,6 +3020,8 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 
 				if (type == SWITCH_MEDIA_TYPE_AUDIO && engine->read_impl.samples_per_second) {
 					if ((val = switch_channel_get_variable(session->channel, "rtp_timeout_sec"))) {
+						//rtp_timeout_sec是控制RTP包超时的，就是说如果freeswitch在设定的时间内收不到RTP包就结束通话
+						//如果配置了rtp_timeout_sec这个参数，则会丢弃media_timeout参数
 						int v = atoi(val);
 						if (v >= 0) {
 							switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_WARNING,
@@ -3031,6 +3040,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 					}
 
 					if (rtp_timeout_sec) {
+						//可以允许丢失的最大的包数量=（每秒采样数*超时时间）/每个包的采样数量
 						engine->max_missed_packets = (engine->read_impl.samples_per_second * rtp_timeout_sec) /
 							engine->read_impl.samples_per_packet;
 
@@ -3046,7 +3056,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 					}
 				}
 			}
-
+			//创建jitter_buffer
 			check_jb(session, NULL, 0, 0, SWITCH_FALSE);
 
 			engine->check_frames = 0;
@@ -3058,6 +3068,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 
 
 		if (do_cng) {
+			//返回静音包
 			/* return CNG for now */
 			*frame = &engine->read_frame;
 			switch_set_flag((*frame), SFF_CNG);
@@ -3070,7 +3081,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 		/* Try to read an RTCP frame, if successful raise an event */
 		if (switch_rtcp_zerocopy_read_frame(engine->rtp_session, &rtcp_frame) == SWITCH_STATUS_SUCCESS) {
 			switch_event_t *event;
-
+			//成功读到一个rtcp包,并发送一个事件
 			if (switch_event_create(&event, SWITCH_EVENT_RECV_RTCP_MESSAGE) == SWITCH_STATUS_SUCCESS) {
 				char value[30];
 				char header[50];
@@ -3151,6 +3162,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 		}
 
 		if (switch_rtp_has_dtmf(engine->rtp_session)) {
+			//有dtmf则先放入队列，应该是另一个线程会消费
 			switch_dtmf_t dtmf = { 0 };
 			switch_rtp_dequeue_dtmf(engine->rtp_session, &dtmf);
 			switch_channel_queue_dtmf(session->channel, &dtmf);
@@ -3161,19 +3173,25 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 			int frames = 1;
 
 			/* autofix timing */
+			//非静音包
 			if (!switch_test_flag((&engine->read_frame), SFF_CNG)) {
+				
 				if (!engine->read_codec.implementation || !switch_core_codec_ready(&engine->read_codec)) {
 					*frame = NULL;
 					switch_goto_status(SWITCH_STATUS_GENERR, end);
 				}
 
 				/* check for timing issues */
+				//SCMF_AUTOFIX_TIMING表示设置 了rtp-autofix-timing 为true
+				//如果语音质量有问题，可以尝试将该值设成 false
 				if (smh->media_flags[SCMF_AUTOFIX_TIMING] && type == SWITCH_MEDIA_TYPE_AUDIO && engine->read_impl.samples_per_second) {
 					char is_vbr;
+					// VBR (Variable Bitrate) 可变的码率
+					//CBR (constant Bitrate) 固定码率
 					is_vbr = engine->read_impl.encoded_bytes_per_packet?0:1;
 
 					engine->check_frames++;
-					/* CBR */
+					/* CBR 固定码率*/
 					if ((smh->media_flags[SCMF_AUTOFIX_TIMING] && (engine->read_frame.datalen % 10) == 0)
 							&& (engine->check_frames < MAX_CODEC_CHECK_FRAMES) && !is_vbr) {
 						engine->check_frames++;
@@ -3182,6 +3200,16 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 
 							uint32_t codec_ms = (int) (engine->read_frame.timestamp -
 													   engine->last_ts) / (engine->read_impl.samples_per_second / 1000);
+						    //正常语音通话时p-time都是20ms，误差很小。
+
+                            //说到这个p-time，就不的不说说RTP的数据采用，一般来说10ms 对应80bytes，20ms对应 160bytes，30ms对于240bytes，40ms对于320bytes，当然这是说的净荷，整个rtp包的话还要加上12bytes的header。
+
+                            //以G711A编码的音频包如果以20ms打包，那么每个包有160个采样点（采样频率为8KHZ，那么每毫秒的采样个数为8个，因此20ms即为160个），这同样体现在时戳
+
+                            //时间戳(timestamp)：反映着个包第一个比特的采样时刻，且后面每个包时戳值呈线性增长，一个公式就是 timestamp = timestamp + (80 * (readDelay/10)); //readdelay为采样时间。
+
+							//codec_ms 应该为每个包的传输需要的时间还是指时间戳?
+							//codec_ms =时间间隔/每毫秒样本数量?
 							if (engine->last_seq && (int) (engine->read_frame.seq - engine->last_seq) > 1) {
 								switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "[%s]: Correcting calculated ptime value from [%d] to [%d] to compensate for [%d] lost packet(s). \n", is_vbr?"VBR":"CBR", codec_ms, codec_ms / (int) (engine->read_frame.seq - engine->last_seq), (int) (engine->read_frame.seq - engine->last_seq - 1));
 								codec_ms = codec_ms / (int) (engine->read_frame.seq - engine->last_seq);
@@ -3194,7 +3222,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 							}
 
 							if (engine->last_codec_ms && engine->last_codec_ms == codec_ms) {
-								engine->mismatch_count++;
+								engine->mismatch_count++;//和上一个包的时间戳一样?丢包
 							} else {
 								engine->mismatch_count = 0;
 							}
@@ -3245,10 +3273,12 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 					} else if (smh->media_flags[SCMF_AUTOFIX_TIMING] && is_vbr && switch_rtp_get_jitter_buffer(engine->rtp_session)
 							   && type == SWITCH_MEDIA_TYPE_AUDIO
 							   && engine->read_frame.timestamp && engine->read_frame.seq && engine->read_impl.samples_per_second) {
+						///* vbr 可变码率*/
 						uint32_t codec_ms = (int) (engine->read_frame.timestamp -
 								   engine->last_ts) / (engine->read_impl.samples_per_second / 1000);
 
 						if (engine->last_seq && (int) (engine->read_frame.seq - engine->last_seq) > 1) {
+							    //两个包序列号间隔大于1，要校正ptime
 								switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, "[%s]: Correcting calculated ptime value from [%d] to [%d] to compensate for [%d] lost packet(s)\n", is_vbr?"VBR":"CBR", codec_ms, codec_ms / (int) (engine->read_frame.seq - engine->last_seq), (int) (engine->read_frame.seq - engine->last_seq - 1));
 								codec_ms = codec_ms / (int) (engine->read_frame.seq - engine->last_seq);
 						}
@@ -3265,7 +3295,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 
 						if (engine->mismatch_count > MAX_MISMATCH_FRAMES) {
 
-							if (codec_ms > 120) {
+							if (codec_ms > 120) {//已经丢失了6个包?
 								/*will show too many times with packet loss*/
 								switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG3,
 												  "[%s]: Remote party is trying to send timestamps that suggest an increment of [%d] ms per packet, which is too high. Ignoring.\n",
@@ -3316,7 +3346,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 
 					payload_map_t *pmap;
 
-
+					//实际接收到的和期望的不一致
 					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG,
 									  "alternate payload received (received %d, expecting %d)\n",
 									  (int) engine->read_frame.payload, (int) engine->cur_payload_map->pt);
@@ -3349,8 +3379,10 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 			skip:
 
 				if ((bytes = engine->read_impl.encoded_bytes_per_packet)) {
+					//多少 个包
 					frames = (engine->read_frame.datalen / bytes);
 				}
+				//采样数量
 				engine->read_frame.samples = (int) (frames * engine->read_impl.samples_per_packet);
 
 				if (engine->read_frame.datalen == 0) {
@@ -3367,6 +3399,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 
 
 	if (type == SWITCH_MEDIA_TYPE_TEXT && !switch_test_flag((&engine->read_frame), SFF_CNG)) {
+		//rtcp？非静音包
 		if (engine->red_pt) {
 			unsigned char *p = engine->read_frame.data;
 
@@ -3756,6 +3789,7 @@ retry:
 		if (strcasecmp(a_engine->read_impl.iananame, a_engine->cur_payload_map->iananame) ||
 			(uint32_t) a_engine->read_impl.microseconds_per_packet / 1000 != a_engine->cur_payload_map->codec_ms ||
 			a_engine->read_impl.samples_per_second != a_engine->cur_payload_map->rm_rate ) {
+				//参数不一致需要重置编码器
 
 			if (switch_core_session_try_reset(session, 0, 0) != SWITCH_STATUS_SUCCESS) {
 				switch_time_t elapsed = switch_micro_time_now() - start;
@@ -3797,13 +3831,14 @@ retry:
 
 
 	switch_core_session_parse_codec_settings(session, SWITCH_MEDIA_TYPE_AUDIO);
-
+	//bitrate：码率 单位为比特/秒（bit/s或bps）、千比特/秒（kbit/s或kbps，k=1000）或兆比特/秒（Mbps，M=1000000）
+	//读编码器初始化
 	if (switch_core_codec_init_with_bitrate(&a_engine->read_codec,
 											a_engine->cur_payload_map->iananame,
 											a_engine->cur_payload_map->modname,
 											a_engine->cur_payload_map->rm_fmtp,
 											a_engine->cur_payload_map->rm_rate,
-											a_engine->cur_payload_map->codec_ms,
+											a_engine->cur_payload_map->codec_ms,//传输一个包的时间,如20ms
 											a_engine->cur_payload_map->channels,
 											a_engine->cur_payload_map->bitrate,
 											SWITCH_CODEC_FLAG_ENCODE | SWITCH_CODEC_FLAG_DECODE | codec_flags,
@@ -3815,7 +3850,7 @@ retry:
 
 	a_engine->read_codec.session = session;
 
-
+	//写编码器初始化
 	if (switch_core_codec_init_with_bitrate(&a_engine->write_codec,
 											a_engine->cur_payload_map->iananame,
 											a_engine->cur_payload_map->modname,
@@ -3857,7 +3892,7 @@ retry:
 
 	if (switch_rtp_ready(a_engine->rtp_session)) {
 		switch_assert(a_engine->read_codec.implementation);
-
+		//计算采样率和初始化定时器等
 		if (switch_rtp_change_interval(a_engine->rtp_session,
 									   a_engine->read_impl.microseconds_per_packet,
 									   a_engine->read_impl.samples_per_packet) != SWITCH_STATUS_SUCCESS) {
@@ -13381,6 +13416,7 @@ SWITCH_DECLARE(void) switch_core_media_break(switch_core_session_t *session, swi
 	}
 
 	if (switch_rtp_ready(smh->engines[type].rtp_session)) {
+		//设置一下flag
 		switch_rtp_break(smh->engines[type].rtp_session);
 	}
 }

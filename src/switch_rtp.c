@@ -4456,14 +4456,17 @@ SWITCH_DECLARE(switch_status_t) switch_rtp_set_interval(switch_rtp_t *rtp_sessio
 	rtp_session->ms_per_packet = ms_per_packet;
 	rtp_session->samples_per_interval = rtp_session->conf_samples_per_interval = samples_per_interval;
 	rtp_session->missed_count = 0;
+	//采样率=(一千毫秒/传输一个包需要的毫秒数)*每个包的样本数 = 每秒传输的包数*每个包的样本数
 	rtp_session->samples_per_second =
 		(uint32_t) ((double) (1000.0f / (double) (rtp_session->ms_per_packet / 1000)) * (double) rtp_session->samples_per_interval);
 
+	//每秒多少个包
 	rtp_session->one_second = (rtp_session->samples_per_second / rtp_session->samples_per_interval);
 
 	return SWITCH_STATUS_SUCCESS;
 }
-
+//ms_per_packet 传输一个媒体包需要的微秒数
+//samples_per_interval 每个包的样本数
 SWITCH_DECLARE(switch_status_t) switch_rtp_change_interval(switch_rtp_t *rtp_session, uint32_t ms_per_packet, uint32_t samples_per_interval)
 {
 	switch_status_t status = SWITCH_STATUS_SUCCESS;
@@ -4940,6 +4943,7 @@ SWITCH_DECLARE(switch_status_t) switch_rtp_debug_jitter_buffer(switch_rtp_t *rtp
 
 	if (name) x = atoi(name);
 	if (x < 0) x = 0;
+	//name 为空则x=0
 
 	if (rtp_session->jb) {
 		switch_jb_debug_level(rtp_session->jb, x);
@@ -4975,6 +4979,7 @@ SWITCH_DECLARE(switch_status_t) switch_rtp_activate_jitter_buffer(switch_rtp_t *
 	if (rtp_session->jb) {
 		status = switch_jb_set_frames(rtp_session->jb, queue_frames, max_queue_frames);
 	} else {
+		//创建jitter_buffer
 		READ_INC(rtp_session);
 		status = switch_jb_create(&rtp_session->jb, SJB_AUDIO, queue_frames, max_queue_frames, rtp_session->pool);
 		switch_jb_set_session(rtp_session->jb, rtp_session->session);

@@ -659,7 +659,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_codec_init_with_bitrate(switch_codec
 			codec_name = p;
 		}
 	}
-
+	//根据编码器名字和模块名找到编码器接口
 	if ((codec_interface = switch_loadable_module_get_codec_interface(codec_name, modname)) == 0) {
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Invalid codec %s!\n", codec_name);
 		return SWITCH_STATUS_GENERR;
@@ -675,7 +675,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_codec_init_with_bitrate(switch_codec
 
 		goto found;
 	}
-
+	//根据采样率、码率、每个包时长,声道数找到编码器的实现器，不同的参数有不同的实现器
 	/* If no specific codec interval is requested opt for 20ms above all else because lots of stuff assumes it */
 	if (!ms) {
 		for (iptr = codec_interface->implementations; iptr; iptr = iptr->next) {
@@ -718,9 +718,10 @@ SWITCH_DECLARE(switch_status_t) switch_core_codec_init_with_bitrate(switch_codec
 		if (fmtp) {
 			codec->fmtp_in = switch_core_strdup(codec->memory_pool, fmtp);
 		}
-
+		//初始化编码器
 		implementation->init(codec, flags, codec_settings);
 		switch_mutex_init(&codec->mutex, SWITCH_MUTEX_NESTED, codec->memory_pool);
+		//编码器已经准备好
 		switch_set_flag(codec, SWITCH_CODEC_FLAG_READY);
 		return SWITCH_STATUS_SUCCESS;
 	} else {
