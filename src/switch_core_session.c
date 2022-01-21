@@ -929,12 +929,14 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_perform_receive_message(swit
 						  switch_channel_get_name(session->channel), message_names[message->message_id]);
 
 	} else {
+		//未挂断
 		if (session->media_handle) {
+			//RTP包
 			status = switch_core_media_receive_message(session, message);
 		}
 		if (status == SWITCH_STATUS_SUCCESS) {
 			if (session->endpoint_interface->io_routines->receive_message) {
-				//sofia_receive_message?
+				//sofia_receive_message? sip包
 				status = session->endpoint_interface->io_routines->receive_message(session, message);
 			}
 		}
@@ -2395,6 +2397,7 @@ SWITCH_DECLARE(switch_core_session_t *) switch_core_session_request_uuid(switch_
 
 
 	if (use_uuid && switch_core_hash_find(session_manager.session_table, use_uuid)) {
+		//uuid重复了
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "Duplicate UUID!\n");
 		return NULL;
 	}
@@ -2468,7 +2471,9 @@ SWITCH_DECLARE(switch_core_session_t *) switch_core_session_request_uuid(switch_
 	if (use_uuid) {
 		switch_set_string(session->uuid_str, use_uuid);
 	} else {
+		//生成uuid
 		switch_uuid_get(&uuid);
+		//赋值给session
 		switch_uuid_format(session->uuid_str, &uuid);
 	}
 

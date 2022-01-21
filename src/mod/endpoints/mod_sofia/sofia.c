@@ -2373,6 +2373,7 @@ void sofia_queue_message(sofia_dispatch_event_t *de)
 
 	if (mod_sofia_globals.running == 0 || !mod_sofia_globals.msg_queue) {
 		/* Calling with SWITCH_TRUE as we are sure this is the stack's thread */
+		//应该不会进入这里,sofia 模块load的时候已经running=1和创建msg_queue
 		sofia_process_dispatch_event(&de);
 		return;
 	}
@@ -2407,7 +2408,8 @@ static void set_call_id(private_object_t *tech_pvt, sip_t const *sip)
 	}
 }
 
-
+//nua_i_开头表示收到的请求
+//nua_r_开头表示收到的响应
 void sofia_event_callback(nua_event_t event,
 						  int status,
 						  char const *phrase,
@@ -2520,6 +2522,7 @@ void sofia_event_callback(nua_event_t event,
 	de->nua = (nua_t *)su_home_ref(nua_get_home(nua));
 
 	if (event == nua_i_invite && !sofia_private) {
+		//接收到invite请求
 		switch_core_session_t *session;
 		private_object_t *tech_pvt = NULL;
 
@@ -2544,6 +2547,7 @@ void sofia_event_callback(nua_event_t event,
 			switch_mutex_unlock(profile->flag_mutex);
 
 			if (uuid) {
+				//uuid非空则根据uuid查找session
 				if ((session = switch_core_session_locate(uuid))) {
 					tech_pvt = switch_core_session_get_private(session);
 					switch_copy_string(sofia_private->uuid_str, switch_core_session_get_uuid(session), sizeof(sofia_private->uuid_str));
@@ -2583,8 +2587,10 @@ void sofia_event_callback(nua_event_t event,
 		}
 
 		if (sofia_test_pflag(profile, PFLAG_CALLID_AS_UUID)) {
+			//以发过来的callid作为uuid,并生成session
 			session = switch_core_session_request_uuid(sofia_endpoint_interface, SWITCH_CALL_DIRECTION_INBOUND, SOF_NONE, NULL, sip->sip_call_id->i_id);
 		} else {
+			//最后一个参数为空,生成uuid
 			session = switch_core_session_request(sofia_endpoint_interface, SWITCH_CALL_DIRECTION_INBOUND, SOF_NONE, NULL);
 		}
 
@@ -2620,7 +2626,7 @@ void sofia_event_callback(nua_event_t event,
 			goto end;
 		}
 
-
+        //生成新线程处理invite请求
 		if (switch_core_session_thread_launch(session) != SWITCH_STATUS_SUCCESS) {
 			char *uuid;
 
@@ -2645,6 +2651,7 @@ void sofia_event_callback(nua_event_t event,
 		sofia_private->uuid = sofia_private->uuid_str;
 
 		de->init_session = session;
+		//这个队列是干嘛的?
 		switch_core_session_queue_signal_data(session, de);
 		goto end;
 	}
@@ -2658,7 +2665,7 @@ void sofia_event_callback(nua_event_t event,
 			goto end;
 		}
 	}
-
+	//非invite请求放入队列，由 sofia_msg_thread_start 线程处理
 	sofia_queue_message(de);
 
  end:

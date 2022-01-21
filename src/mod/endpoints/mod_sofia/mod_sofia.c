@@ -1182,7 +1182,7 @@ static switch_status_t sofia_read_frame(switch_core_session_t *session, switch_f
 	if (sofia_test_flag(tech_pvt, TFLAG_HUP) || sofia_test_flag(tech_pvt, TFLAG_BYE)) {
 		return SWITCH_STATUS_FALSE;
 	}
-
+	//读rtp包
 	status = switch_core_media_read_frame(session, frame, flags, stream_id, SWITCH_MEDIA_TYPE_AUDIO);
 
 	sofia_clear_flag_locked(tech_pvt, TFLAG_READING);
@@ -6707,6 +6707,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_sofia_load)
 		return SWITCH_STATUS_GENERR;
 	}
 
+	//这个线程专门处理mod_sofia_globals.msg_queue的消息
 	sofia_msg_thread_start(0);
 
 	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Waiting for profiles to start\n");

@@ -1724,8 +1724,11 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 				//主叫io未准备好
 				//或者
 				//被 叫未回100也未回183	
+
+				//被叫超时回复信息或者主叫io未准备好
 				if ((status = switch_ivr_wait_for_answer(session, peer_session)) != SWITCH_STATUS_SUCCESS || !switch_channel_ready(caller_channel)) {
 					switch_channel_state_t w_state = switch_channel_get_state(caller_channel);
+					//挂断被叫
 					switch_channel_hangup(peer_channel, SWITCH_CAUSE_ALLOTTED_TIMEOUT);
 					if (w_state < CS_HANGUP && w_state != CS_ROUTING && w_state != CS_PARK &&
 						!switch_channel_test_flag(caller_channel, CF_REDIRECT) && !switch_channel_test_flag(caller_channel, CF_TRANSFER) &&
@@ -1736,8 +1739,10 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 						}
 
 						if (ext) {
+							//被叫号码非空,则检查是否做转移操作
 							switch_ivr_session_transfer(session, ext, NULL, NULL);
 						} else {
+							//被叫号码空,则挂断主叫
 							switch_channel_hangup(caller_channel, SWITCH_CAUSE_ALLOTTED_TIMEOUT);
 						}
 					}
@@ -1752,7 +1757,9 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 			}
 
 			switch_channel_wait_for_flag(peer_channel, CF_BROADCAST, SWITCH_FALSE, 10000, caller_channel);
+			//处理被叫返回的所有sip信息
 			switch_ivr_parse_all_events(peer_session);
+			//处理主叫返回的所有sip信息
 			switch_ivr_parse_all_events(session);
 
 			msg.message_id = SWITCH_MESSAGE_INDICATE_BRIDGE;
@@ -1902,9 +1909,11 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_multi_threaded_bridge(switch_core_ses
 	msg.message_id = SWITCH_MESSAGE_INDICATE_UNBRIDGE;
 	msg.from = __FILE__;
 	msg.string_arg = switch_core_session_strdup(peer_session, switch_core_session_get_uuid(session));
+	//接收被叫信息
 	switch_core_session_receive_message(peer_session, &msg);
 
 	msg.string_arg = switch_core_session_strdup(session, switch_core_session_get_uuid(peer_session));
+	//接收主叫信息
 	switch_core_session_receive_message(session, &msg);
 
 	state = switch_channel_get_state(caller_channel);

@@ -1024,7 +1024,7 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 			if ((pass = (uint8_t) switch_test_flag(read_codec, SWITCH_CODEC_FLAG_PASSTHROUGH))) {
 				goto no_ringback;
 			}
-
+			//初始化写编码器
 			if (switch_core_codec_init(&write_codec,
 									   "L16",
 									   NULL,
@@ -1122,7 +1122,7 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 	while (switch_channel_ready(peer_channel) && !switch_channel_media_ready(peer_channel)) {
 		//switch_channel_ready 处理了peer_channel回复的一条消息
 		int diff = (int) (switch_micro_time_now() - start);
-		//处理了peer_channel回复的所有消息
+		//处理了主叫回复的所有消息
 		switch_ivr_parse_all_messages(session);
 
 		if (caller_channel && cancel_key) {
@@ -1151,7 +1151,8 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 		}
 
 		if (switch_channel_media_ready(caller_channel)) {
-			//处理了主叫回复的一条消息
+			//switch_channel_media_ready处理了主叫回复的一条消息
+			//读主叫发过来的包
 			status = switch_core_session_read_frame(session, &read_frame, SWITCH_IO_FLAG_NONE, 0);
 			if (!SWITCH_READ_ACCEPTABLE(status)) {
 				break;
@@ -1161,6 +1162,7 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 		}
 
 		if (read_frame && !pass) {
+			//有读到主叫发过来的包
 
 			if (!write_frame.codec) {
 				status = SWITCH_STATUS_FALSE;
@@ -1168,6 +1170,7 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 			}
 
 			if (ringback.fh) {
+				//读响铃音文件
 				switch_size_t mlen, olen;
 				unsigned int pos = 0;
 
@@ -1196,18 +1199,21 @@ SWITCH_DECLARE(switch_status_t) switch_ivr_wait_for_answer(switch_core_session_t
 				}
 				write_frame.datalen = (uint32_t) (ringback.asis ? olen : olen * 2 * ringback.fh->channels);
 			} else if (ringback.audio_buffer) {
+				//缓存里面获取响铃
 				if ((write_frame.datalen = (uint32_t) switch_buffer_read_loop(ringback.audio_buffer,
 																			  write_frame.data,
 																			  write_frame.codec->implementation->decoded_bytes_per_packet)) <= 0) {
 					break;
 				}
 			} else if (ringback.silence) {
+				//静音
 				write_frame.datalen = write_frame.codec->implementation->decoded_bytes_per_packet;
 				switch_generate_sln_silence((int16_t *) write_frame.data, write_frame.datalen / 2,
 											write_frame.codec->implementation->number_of_channels, ringback.silence);
 			}
 
 			if ((ringback.fh || ringback.silence || ringback.audio_buffer) && write_frame.codec && write_frame.datalen) {
+				//给主叫返回响铃音
 				if (switch_core_session_write_frame(session, &write_frame, SWITCH_IO_FLAG_NONE, 0) != SWITCH_STATUS_SUCCESS) {
 					break;
 				}

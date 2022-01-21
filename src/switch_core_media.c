@@ -3155,7 +3155,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 			}
 		}
 
-		/* Fast PASS! */
+		/* Fast PASS! 代理转发*/
 		if (switch_test_flag((&engine->read_frame), SFF_PROXY_PACKET)) {
 			*frame = &engine->read_frame;
 			switch_goto_status(SWITCH_STATUS_SUCCESS, end);
@@ -3417,8 +3417,9 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 					uint8_t buf[SWITCH_RTP_MAX_BUF_LEN];
 					frame.data = buf;
 					frame.buflen = sizeof(buf);
-
+                    //从jb 队列里面根据偏移量找到节点，将节点内容赋值给frame
 					if (switch_jb_peek_frame(jb, 0, engine->read_frame.seq, i, &frame) == SWITCH_STATUS_SUCCESS) {
+						//解释frame内容，赋值给engine->tf->text_frame.payload，engine->tf->text_frame.data
 						if (get_rtt_red_seq(engine->read_frame.seq,
 											frame.data,
 											frame.datalen,
@@ -3433,7 +3434,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_read_frame(switch_core_session
 
 				}
 
-				if (engine->tf->text_frame.datalen == 0) {
+				if (engine->tf->text_frame.datalen == 0) {//如果找不到，给默认值 
 					engine->tf->text_frame.data = "� ";
 					engine->tf->text_frame.datalen = strlen(engine->tf->text_frame.data);
 				}
