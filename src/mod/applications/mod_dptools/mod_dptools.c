@@ -656,6 +656,7 @@ SWITCH_STANDARD_APP(exe_function)
 
 	if (!zstr(data) && (lbuf = switch_core_session_strdup(session, data))
 		&& (argc = switch_separate_string(lbuf, ' ', argv, (sizeof(argv) / sizeof(argv[0]))))) {
+		//执行队列里面的app
 		switch_core_session_execute_exten(session, argv[0], argv[1], argv[2]);
 	} else {
 		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_ERROR, "Usage: %s\n", EXE_SYNTAX);

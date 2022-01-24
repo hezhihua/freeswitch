@@ -3105,7 +3105,7 @@ SWITCH_DECLARE(switch_status_t) switch_core_session_execute_exten(switch_core_se
 		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_NOTICE, "Execute [depth=%d] %s(%s)\n",
 						  switch_core_session_stack_count(session, 0),
 						  extension->current_application->application_name, switch_str_nil(extension->current_application->application_data));
-
+		//执行队列里面的app，队列里面的app是mod_diaplan_xml.c里面解释xml的时候放进去的
 		if (switch_core_session_execute_application(session,
 													extension->current_application->application_name,
 													extension->current_application->application_data) != SWITCH_STATUS_SUCCESS) {

@@ -563,6 +563,8 @@ static int parse_exten(switch_core_session_t *session, switch_caller_profile_t *
 					}
 
 					if (xinline) {
+						//Action上增加了一个inline属性,比如<action inline="true" application="set" data="greeting=no- greeting.wav"/>
+						//设置 了inline属性，则直接执行app，不需要放到队列一起执行
 						exec_app(session, application, app_data);
 					} else {
 						switch_caller_extension_add_application(session, *extension, application, app_data);
@@ -687,7 +689,10 @@ SWITCH_STANDARD_DIALPLAN(dialplan_hunt)
 		if (!exten_name) {
 			exten_name = "UNKNOWN";
 		}
-
+		//continue默认为false,在Dialplan的Hunting阶段，一旦根
+		//据前面介绍的condition匹配规则找到对应的extension，就执行相应
+		//的Action，而不会再继续查找其他的extension了，不管后面的
+		//extension是否有可能匹配
 		if ( switch_core_test_flag(SCF_DIALPLAN_TIMESTAMPS) ) {
 			switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG,
 						  "Dialplan: %s parsing [%s->%s] continue=%s\n",
