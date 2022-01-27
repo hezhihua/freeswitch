@@ -6655,6 +6655,7 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_dptools_load)
 				   "[+]<time> <path> [aleg|bleg|both]", SAF_SUPPORT_NOMEDIA);
 	SWITCH_ADD_APP(app_interface, "sched_transfer", SCHED_TRANSF_DESCR, SCHED_TRANSF_DESCR, sched_transfer_function,
 				   "[+]<time> <extension> <dialplan> <context>", SAF_SUPPORT_NOMEDIA);
+	//execute_extension与transfer类似，都需要Dialplan的“三要素”作为参数，但不同的是：前者是临时执行一些Dialplan制定的App，它不会重新进入ROUTING阶段
 	SWITCH_ADD_APP(app_interface, "execute_extension", "Execute an extension", "Execute an extension", exe_function, EXE_SYNTAX, SAF_SUPPORT_NOMEDIA);
 	SWITCH_ADD_APP(app_interface, "sched_heartbeat", "Enable Scheduled Heartbeat", "Enable Scheduled Heartbeat",
 				   sched_heartbeat_function, SCHED_HEARTBEAT_SYNTAX, SAF_SUPPORT_NOMEDIA);

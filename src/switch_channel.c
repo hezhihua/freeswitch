@@ -3833,9 +3833,10 @@ SWITCH_DECLARE(switch_status_t) switch_channel_execute_on(switch_channel_t *chan
 
 	for (hp = event->headers; hp; hp = hp->next) {
 		char *var = hp->name;
-		char *val = hp->value;
+		char *val = hp->value;//这里面配置有app
 
 		if (!strncasecmp(var, variable_prefix, strlen(variable_prefix))) {
+			//找到该前缀的信息,
 			if (hp->idx) {
 				//要执行一组的app
 				int i;
