@@ -2369,6 +2369,7 @@ SWITCH_DECLARE(void) switch_core_media_prepare_codecs(switch_core_session_t *ses
 	}
 
 	if (!force && (switch_channel_test_flag(session->channel, CF_PROXY_MODE) || switch_channel_test_flag(session->channel, CF_PROXY_MEDIA))) {
+		//代理模式直接返回
 		return;
 	}
 
@@ -2379,24 +2380,27 @@ SWITCH_DECLARE(void) switch_core_media_prepare_codecs(switch_core_session_t *ses
 	if (smh->mparams->num_codecs) {
 		return;
 	}
-
+	//<action application="set" data="originator_codec=PCMU"/>
 	ocodec = switch_channel_get_variable(session->channel, SWITCH_ORIGINATOR_CODEC_VARIABLE);
 
 	smh->payload_space = 0;
 
 	switch_assert(smh->session != NULL);
-
+	//<action application="set" data="absolute_codec_string=PCMU,GSM"/>
+	//这个变量将强制B腿使用变量值指定的编码列表，而不用考虑其它任何因素
 	if ((abs = switch_channel_get_variable(session->channel, "absolute_codec_string"))) {
 		codec_string = abs;
 		goto ready;
 	}
-
+	//media_mix_inbound_outbound_codecs设置为true,允许双腿编码不同（需要转码）
 	val = switch_channel_get_variable_dup(session->channel, "media_mix_inbound_outbound_codecs", SWITCH_FALSE, -1);
 
 	if (!switch_channel_test_flag(session->channel, CF_ANSWERED) && (!val || !switch_true(val) || smh->media_flags[SCMF_DISABLE_TRANSCODING]) && ocodec) {
 		codec_string = ocodec;
 		goto ready;
 	}
+	//<action application="export" data="nolocal:codec_string=PCMA,PCMU"/>
+	//<action application="set" data="codec_string=PCMU,GSM"/>
 
 	if (!(codec_string = switch_channel_get_variable(session->channel, "codec_string"))) {
 		codec_string = switch_core_media_get_codec_string(smh->session);
@@ -2408,6 +2412,7 @@ SWITCH_DECLARE(void) switch_core_media_prepare_codecs(switch_core_session_t *ses
 	}
 
 	if (ocodec) {
+		//拼接在一起
 		codec_string = switch_core_session_sprintf(smh->session, "%s,%s", ocodec, codec_string);
 	}
 

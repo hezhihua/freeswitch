@@ -302,8 +302,8 @@ typedef struct {
 } switch_dtmf_t;
 
 typedef enum {
-	SWITCH_CALL_DIRECTION_INBOUND,
-	SWITCH_CALL_DIRECTION_OUTBOUND
+	SWITCH_CALL_DIRECTION_INBOUND,//呼入到fs?
+	SWITCH_CALL_DIRECTION_OUTBOUND//fs呼出?
 } switch_call_direction_t;
 
 typedef enum {

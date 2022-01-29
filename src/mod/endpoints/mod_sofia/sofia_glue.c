@@ -525,6 +525,7 @@ char *sofia_glue_session_id_header(switch_core_session_t *session, sofia_profile
 	a_id = switch_channel_get_variable_partner(channel, SWITCH_RFC7989_SESSION_ID_VARIABLE);
 
 	if (zstr(a_id)) {
+		//没有session_uuid，则找app_session_uuid
 		a_id = switch_channel_get_variable(channel, SWITCH_RFC7989_APP_SESSION_ID_VARIABLE);
 		if (!zstr(a_id) && strlen(a_id) == 36) {
 			switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_INFO, "Reformatting app Session-ID: %s\n", a_id);
@@ -540,8 +541,10 @@ char *sofia_glue_session_id_header(switch_core_session_t *session, sofia_profile
 	}
 
 	if (zstr(a_id)) {
+		//a_id为空，继续找
 		const char *partner_uuid = switch_channel_get_partner_uuid(channel);
 		if (!zstr(partner_uuid)) {
+			//根据uuid拼接session_uuid
 			const char *partner_session_id = sofia_glue_uuid_to_session_uuid(switch_core_session_get_pool(session), partner_uuid);
 			switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_INFO, "Setting \"Session-ID: %s\" from partner leg\n", partner_session_id);
 			switch_channel_set_variable_partner(channel, SWITCH_RFC7989_SESSION_ID_VARIABLE, partner_session_id);
@@ -551,10 +554,10 @@ char *sofia_glue_session_id_header(switch_core_session_t *session, sofia_profile
 
 	if (((switch_channel_direction(channel) == SWITCH_CALL_DIRECTION_OUTBOUND) && zstr(a_id) &&
 				switch_channel_get_state(channel) == CS_INIT) && switch_channel_test_flag(channel, CF_ORIGINATING)) {
-		/*outbound initial request*/
+		/*outbound initial request 呼出初始化请求?*/
 		char uuid_str[SWITCH_UUID_FORMATTED_LENGTH + 1];
 
-		switch_uuid_str(uuid_str, sizeof(uuid_str));
+		switch_uuid_str(uuid_str, sizeof(uuid_str));//生成uuid
 		a_id = sofia_glue_uuid_to_session_uuid(switch_core_session_get_pool(session), uuid_str);
 		if (!zstr(a_id)) {
 			struct private_object *tech_pvt = switch_core_session_get_private(session);
@@ -573,13 +576,13 @@ char *sofia_glue_session_id_header(switch_core_session_t *session, sofia_profile
 		b_id = RFC7989_SESSION_UUID_NULL;
 		return switch_core_session_sprintf(session, "Session-ID: %s;remote=%s", a_id, b_id);
 	}
-
+	//获取remote_session_uuid
 	temp_id = switch_channel_get_variable(channel, SWITCH_RFC7989_REMOTE_SESSION_ID_VARIABLE);
 	if ((switch_channel_direction(channel) == SWITCH_CALL_DIRECTION_INBOUND) && 
 			((switch_channel_get_state(channel) == CS_INIT) || (switch_channel_get_state(channel) == CS_EXECUTE)) &&
 			zstr(temp_id)) {
 		/* fallback to RFC7329 - "old". */
-		/* inbound initial request, no "remote" param. section 11 of RFC7989. */
+		/* inbound initial request, no "remote" param. section 11 of RFC7989. 呼入？*/
 		a_id = switch_channel_get_variable(channel, SWITCH_RFC7989_SESSION_ID_VARIABLE);
 		if (zstr(a_id)) {
 			a_id = RFC7989_SESSION_UUID_NULL;
@@ -593,20 +596,23 @@ char *sofia_glue_session_id_header(switch_core_session_t *session, sofia_profile
 	if ((switch_channel_direction(channel) == SWITCH_CALL_DIRECTION_INBOUND) &&
 			((switch_channel_get_state(channel) == CS_INIT) || (switch_channel_get_state(channel) == CS_EXECUTE)) && 
 			sofia_glue_is_nil_session_uuid(temp_id)) {
-		/*inbound initial request*/
+		/*inbound initial request  呼入并且temp_id为00000000000000000000000000000000*/
 		char uuid_str[SWITCH_UUID_FORMATTED_LENGTH + 1];
 
-		switch_uuid_str(uuid_str, sizeof(uuid_str));
+		switch_uuid_str(uuid_str, sizeof(uuid_str));//生成uuid
 		a_id = sofia_glue_uuid_to_session_uuid(switch_core_session_get_pool(session), uuid_str);
 		if (!zstr(a_id)) {
 			struct private_object *tech_pvt = switch_core_session_get_private(session);
+			//设置app_session_uuid
 			switch_channel_set_variable(channel, SWITCH_RFC7989_APP_SESSION_ID_VARIABLE, a_id);
 			if (tech_pvt && tech_pvt->sofia_private) {
 				tech_pvt->sofia_private->rfc7989_uuid = su_strdup(nua_handle_get_home(tech_pvt->nh), a_id);
 			}
 		}
+		//获取session_uuid
 		b_id = switch_channel_get_variable(channel, SWITCH_RFC7989_SESSION_ID_VARIABLE);
 		if (zstr(b_id)) {
+			//为空则设置为00000000000000000000000000000000
 			b_id = RFC7989_SESSION_UUID_NULL;
 		}
 		switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_DEBUG, 
@@ -1105,6 +1111,7 @@ switch_status_t sofia_glue_do_invite(switch_core_session_t *session)
 	caller_profile = switch_channel_get_caller_profile(channel);
 
 	if (!caller_profile) {
+		//找不到主叫配置则挂断电话
 		switch_channel_hangup(channel, SWITCH_CAUSE_DESTINATION_OUT_OF_ORDER);
 		switch_goto_status(SWITCH_STATUS_FALSE, end);
 	}
@@ -1115,10 +1122,11 @@ switch_status_t sofia_glue_do_invite(switch_core_session_t *session)
 	}
 
 
-	cid_name = caller_profile->caller_id_name;
-	cid_num = caller_profile->caller_id_number;
+	cid_name = caller_profile->caller_id_name;//主叫名字
+	cid_num = caller_profile->caller_id_number;//主叫号码
 
 	if (!tech_pvt->sent_invites && !switch_channel_test_flag(channel, CF_ANSWERED)) {
+		//未发送invite请求 和该channel未应答
 		switch_core_media_prepare_codecs(tech_pvt->session, SWITCH_FALSE);
 		switch_core_media_check_video_codecs(tech_pvt->session);
 	}

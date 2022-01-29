@@ -992,10 +992,12 @@ SWITCH_DECLARE(const char *) switch_channel_get_variable_dup(switch_channel_t *c
 
 			if (cp) {
 				if (!strncmp(varname, "aleg_", 5)) {
+					//主叫
 					cp = cp->originator_caller_profile;
 					varname += 5;
 				} else if (!strncmp(varname, "bleg_", 5)) {
 					cp = cp->originatee_caller_profile;
+					//被叫
 					varname += 5;
 				}
 			}
@@ -1029,6 +1031,7 @@ SWITCH_DECLARE(const char *) switch_channel_get_variable_partner(switch_channel_
 
 	if (!zstr(varname)) {
 		if ((uuid = switch_channel_get_partner_uuid(channel))) {
+			//找到uuid后,根据uuid找到session,channel，再在channel里面找到变量的值
 			switch_core_session_t *session;
 			if ((session = switch_core_session_locate(uuid))) {
 				switch_channel_t *tchannel = switch_core_session_get_channel(session);
@@ -4921,7 +4924,8 @@ SWITCH_DECLARE(const char *) switch_channel_get_partner_uuid_copy(switch_channel
 SWITCH_DECLARE(const char *) switch_channel_get_partner_uuid(switch_channel_t *channel)
 {
 	const char *uuid = NULL;
-
+	//signal_bond:UUID of the channel this channel is bridged/bonded to. Not present on a one-legged call.
+	//originate_signal_bond，signal_bond没有就找originate_signal_bond
 	if (!(uuid = switch_channel_get_variable(channel, SWITCH_SIGNAL_BOND_VARIABLE))) {
 		uuid = switch_channel_get_variable(channel, SWITCH_ORIGINATE_SIGNAL_BOND_VARIABLE);
 	}
