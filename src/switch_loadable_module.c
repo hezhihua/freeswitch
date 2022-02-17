@@ -2618,7 +2618,7 @@ static void do_swap(const switch_codec_implementation_t **array, int a, int b)
 	array[b] = array[a];
 	array[a] = tmp;
 }
-
+//排序编码器，按照给定的顺序，将microseconds_per_packet相同的排列到一起,比如5453989,排序后为5543998
 static void switch_loadable_module_sort_codecs(const switch_codec_implementation_t **array, int arraylen)
 {
 	int i = 0, sorted_ptime = 0;
@@ -2648,7 +2648,7 @@ static void switch_loadable_module_sort_codecs(const switch_codec_implementation
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "sorted1 = %d\n", sorted_ptime);
 #endif
 		}
-
+        //名字不一样才参与排序
 		if (i > 0 && array[i-1] && strcasecmp(array[i]->iananame, array[i-1]->iananame) && this_ptime != sorted_ptime) {
 			int j;
 			int swapped = 0;
@@ -2667,7 +2667,7 @@ static void switch_loadable_module_sort_codecs(const switch_codec_implementation
 #ifdef DEBUG_CODEC_SORTING
 					switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "swap %d %d ptime %d\n", i, j, check_ptime);
 #endif
-					do_swap(array, i, j);
+					do_swap(array, i, j);//i如果等于j也交换?
 					swapped = 1;
 					break;
 				}
