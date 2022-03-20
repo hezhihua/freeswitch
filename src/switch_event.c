@@ -399,7 +399,7 @@ static switch_status_t switch_event_queue_dispatch_event(switch_event_t **eventp
 		}
 
 		*eventp = NULL;
-		//先消费队列旧的事件再把新来的事件放进队列
+		//上面先消费队列旧的事件，最后才把新来的事件放进队列
 		switch_queue_push(EVENT_DISPATCH_QUEUE, event);
 		event = NULL;
 

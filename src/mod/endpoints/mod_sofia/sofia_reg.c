@@ -3346,11 +3346,13 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 				}
 			}
 		} else {
+			//ip在auth_acl里面
 			switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "IP [%s] passed ACL check [%s]\n", ip, auth_acl);
 		}
 	}
 
 	if (!allow_empty_password && zstr(passwd) && zstr(a1_hash)) {
+		//不允许密码为空但passwd为空
 		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Empty password denied for user %s@%s\n", username, domain_name);
 		ret = AUTH_FORBIDDEN;
 		goto end;
@@ -3363,7 +3365,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 
 	if (!a1_hash) {
 		input = switch_mprintf("%s:%s:%s", username, realm, passwd);
-
+		//比如对input做md5数字签名
 		if (sofia_make_digest(use_alg, &hexdigest, (void *)input, &digest_outputlen) != SWITCH_STATUS_SUCCESS) {
 			switch_safe_free(input);
 			goto end;
@@ -3375,6 +3377,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 
 	if (user_agent_filter) {
 		if (switch_regex_match(user_agent, user_agent_filter) == SWITCH_STATUS_SUCCESS) {
+			//匹配规则
 			if (sofia_test_pflag(profile, PFLAG_LOG_AUTH_FAIL)) {
 				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,
 								  "SIP auth OK (REGISTER) due to user-agent-filter.  Filter \"%s\" User-Agent \"%s\"\n", user_agent_filter, user_agent);
@@ -3406,6 +3409,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 		free(sql);
 
 		if (count + 1 > max_registrations_perext) {
+			//注册尝试次数太多了,拒绝
 			ret = AUTH_FORBIDDEN;
 			if (sofia_test_pflag(profile, PFLAG_LOG_AUTH_FAIL)) {
 				switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING,
@@ -3438,6 +3442,7 @@ auth_res_t sofia_reg_parse_auth(sofia_profile_t *profile,
 	}
 
 	if (input2 && !strcasecmp(bigdigest, response)) {
+		//签名相等，通过
 		ret = AUTH_OK;
 	} else {
 		if ((profile->ndlb & PFLAG_NDLB_BROKEN_AUTH_HASH) && strcasecmp(regstr, "REGISTER") && strcasecmp(regstr, "INVITE")) {
